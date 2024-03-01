@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Planting Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.1/css/all.css">
+    <style>
+        body {
+            display: flex;
+            font-family: 'Arial', sans-serif;
+            margin:0px;
+        }
+        #sidebar {
+            width: 300px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #f4f4f4;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #map {
+            height: 100vh;
+            flex-grow: 1;
+        }
+        .input-group {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .input-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            margin-top:10px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+
+
+        /* Style for the custom checkbox */
+.custom-checkbox {
+    display: inline-block;
+    position: relative;
+    padding-left: 25px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 20px;
+    user-select: none;
+}
+
+/* Hide the default checkbox */
+.custom-checkbox input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: #eee;
+    border-radius: 4px;
+}
+
+/* When the checkbox is checked, add a blue background */
+.custom-checkbox input:checked ~ .checkmark {
+    background-color: #2196F3;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+    content: "\f00c"; /* Correct code for FontAwesome checkmark */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900; /* FontAwesome 5 requires explicit font-weight for solid icons */
+    position: absolute;
+    display: none;
+    color: white;
+    top: -2px;
+    left: 5px;
+    font-size: 14px;
+}
+
+/* Show the checkmark when checked */
+.custom-checkbox input:checked ~ .checkmark:after {
+    display: block;
+}
+
+/* Style the checkmark/indicator */
+.custom-checkbox .checkmark:after {
+    left: 5px;
+    top: 0px;
+}
+
+
+
+
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2><i class="fas fa-tree"></i> Tree Planting Parameters</h2>
+        <form id="parametersForm">
+            <div class="input-group">
+                <label for="totalTrees">Total Trees:</label>
+                <input type="number" id="totalTrees" name="totalTrees" value="1000">
+            </div>
+            <div class="input-group">
+                <label for="coolingEffect">Cooling Effect:</label>
+                <input type="number" id="coolingEffect" name="coolingEffect" step="0.1" value="0.1">
+            </div>
+            <div class="input-group">
+                <label for="coolingDistance">Cooling Distance (meters):</label>
+                <input type="number" id="coolingDistance" name="coolingDistance" value="50000">
+            </div>
+            <button type="button" onclick="updateTreePlanting()">Update Tree Planting</button>
+            <h4 id="results">...</h4>
+
+            <!-- Tree Data Toggle and Settings -->
+            <label class="custom-checkbox">View Tree Data
+                <input type="checkbox" id="treeToggleView" name="treeToggleView" onchange="toggleTreeSettings()">
+                <span class="checkmark"></span>
+            </label>
+            <div id="treeSettings" style="display: none;">
+                <div class="input-group">
+                    <label for="treeCoolingEffect">Tree Cooling Effect:</label>
+                    <input type="number" id="treeCoolingEffect" name="treeCoolingEffect" step="0.1" value="0.1">
+                </div>
+                <div class="input-group">
+                    <label for="treeCoolingDistance">Tree Cooling Distance (meters):</label>
+                    <input type="number" id="treeCoolingDistance" name="treeCoolingDistance" value="500">
+                </div>
+            </div>
+
+            <!-- School Data Toggle and Settings -->
+            <label class="custom-checkbox">View School Data
+                <input type="checkbox" id="schoolToggleView" name="schoolToggleView" onchange="toggleSchoolSettings()">
+                <span class="checkmark"></span>
+            </label>
+            <div id="schoolSettings" style="display: none;">
+                <div class="input-group">
+                    <label for="schoolHeatingEffect">School Heating Effect:</label>
+                    <input type="number" id="schoolHeatingEffect" name="schoolHeatingEffect" step="0.1" value="0.1">
+                </div>
+                <div class="input-group">
+                    <label for="schoolHeatingDistance">School Heating Distance (meters):</label>
+                    <input type="number" id="schoolHeatingDistance" name="schoolHeatingDistance" value="500">
+                </div>
+            </div>
+
+            
+        </form>
+    </div>
+    
+    <div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+    var map = L.map('map',
+    {
+        renderer: L.canvas() // Set Canvas as the default renderer for all layers
+    }).setView([40.642935, -73.930188], 13); 
+
+    // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    //     attribution: '© OpenStreetMap contributors'
+    // }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors, © CartoDB'
+    }).addTo(map);
+
+
+
+    // Global variable to keep track of the current GeoJSON layer
+    var currentGeoJsonLayer = null;
+
+    function displayGeoJson(geojsonData) {
+        // Remove the existing GeoJSON layer if it exists
+        if (currentGeoJsonLayer) {
+            map.removeLayer(currentGeoJsonLayer);
+        }
+
+        // Add a new GeoJSON layer with the updated data
+        currentGeoJsonLayer = L.geoJson(geojsonData, {
+            style: function(feature) {
+                return { color: getColor(feature.properties._mean), weight: 2, fillOpacity: 0.5 };
+            }
+        }).addTo(map);
+    }
+
+
+    function updateTreePlanting() {
+        var totalTrees = parseInt(document.getElementById('totalTrees').value);
+        var coolingEffect = parseFloat(document.getElementById('coolingEffect').value);
+        var coolingDistance = parseInt(document.getElementById('coolingDistance').value);
+
+        // Clear existing tree markers
+        clearMapLayers();
+        
+        // Example values for schoolEffect and schoolDistance, replace with actual input retrieval
+        let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
+        let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+
+        // Example values for treeEffect and treeDistance, replace with actual input retrieval
+        let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
+        let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+
+        // Pass the additional parameters for schools and trees to the planting function
+        PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance);
+
+
+    }
+
+    function clearMapLayers() {
+        // Modified to remove only tree markers, preserving the GeoJSON layer
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+    }
+
+    function calculateCentroid(geometry) {
+    let centroid = [0, 0];
+    let totalPoints = 0;
+
+    if (geometry.type === "Polygon") {
+        geometry.coordinates[0].forEach(coord => {
+            centroid[0] += coord[0]; // longitude
+            centroid[1] += coord[1]; // latitude
+            totalPoints++;
+        });
+    } else if (geometry.type === "MultiPolygon") {
+        geometry.coordinates.forEach(polygon => {
+            let polygonCentroid = [0, 0];
+            let polygonPoints = 0;
+            polygon[0].forEach(coord => { // Only using the first ring
+                polygonCentroid[0] += coord[0];
+                polygonCentroid[1] += coord[1];
+                polygonPoints++;
+            });
+            centroid[0] += polygonCentroid[0] / polygonPoints; // Average for this polygon
+            centroid[1] += polygonCentroid[1] / polygonPoints;
+            totalPoints += 1; // We're averaging centroids, so each polygon counts as one "point"
+        });
+    }
+
+    centroid[0] /= totalPoints; // Final average
+    centroid[1] /= totalPoints;
+    return [centroid[1], centroid[0]]; // Leaflet uses [lat, lng] format
+}
+
+
+
+
+
+function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance) {
+    let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+    let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_typ === 'plantable');
+
+    // Apply effects from schools and existing trees
+    applySchoolEffect(plantableAreas, schoolEffect, schoolDistance);
+    applyTreeEffect(plantableAreas, treeEffect, treeDistance);
+
+    // Find the minimum _mean value to adjust all values to positive if necessary
+    const minMean = Math.min(...plantableAreas.map(area => area.properties._mean));
+    const adjustment = minMean < 0 ? Math.abs(minMean) : 0;
+
+    // Adjust all _mean values to ensure they are positive
+    plantableAreas.forEach(area => area.properties._mean += adjustment);
+
+    let treesPlanted = 0;
+
+    // Display GeoJSON with original styling
+    displayGeoJson(geojsonData);
+
+    while (treesPlanted < totalTrees && plantableAreas.length > 0) {
+        // Sort plantable areas by _mean property in descending order
+        plantableAreas.sort((a, b) => b.properties._mean - a.properties._mean);
+
+        const plantingArea = plantableAreas[0];
+
+        const centroid = calculateCentroid(plantingArea.geometry);
+        placeTreeOnMap(centroid);
+        treesPlanted++;
+
+        // Apply cooling effect to the planted area if applicable
+        if (coolingEffect > 0) {
+            plantingArea.properties._mean = Math.max(0, plantingArea.properties._mean - coolingEffect);
+        }
+
+        // Filter and adjust remaining plantable areas considering cooling effect and distance
+        plantableAreas = plantableAreas.slice(1).filter(area => {
+            const areaCentroid = calculateCentroid(area.geometry);
+            const distance = getDistance(centroid[0], centroid[1], areaCentroid[0], areaCentroid[1]);
+            if (coolingDistance > 0 && distance <= coolingDistance && coolingEffect > 0) {
+                area.properties._mean = Math.max(0, area.properties._mean - coolingEffect * (coolingDistance - distance) / coolingDistance);
+            }
+            return area.properties._mean > 0;
+        });
+    }
+
+    if (treesPlanted < totalTrees) {
+        console.log(`Planted ${treesPlanted} trees. Ran out of suitable planting areas.`);
+        document.getElementById('results').innerText = `Planted ${treesPlanted} trees. Ran out of suitable planting areas.`;
+    } else {
+        console.log(`Successfully planted all ${totalTrees} trees.`);
+        document.getElementById('results').innerText = `Successfully planted all ${totalTrees} trees.`;
+    }
+}
+
+
+
+
+
+    function placeTreeOnMap(centroid) {
+        L.marker(centroid).addTo(map);
+    }
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+        // Haversine formula to calculate distance between two points on Earth
+        var R = 6371e3; // Earth's radius in meters
+        var φ1 = lat1 * Math.PI / 180;
+        var φ2 = lat2 * Math.PI / 180;
+        var Δφ = (lat2 - lat1) * Math.PI / 180;
+        var Δλ = (lon2 - lon1) * Math.PI / 180;
+
+        var a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c; // in meters
+    }
+
+    function getColor(heatIndex) {
+        const range = maxMean - minMean;
+        const normalized = (heatIndex - minMean) / range;
+
+        // Interpolate between green (0), orange (0.5), and red (1)
+        if (normalized < 0.5) {
+            // Mix between green and orange
+            const mix = normalized * 2; // Scale [0, 0.5] -> [0, 1]
+            return mixColor('#008000', '#ff8c00', mix);
+        } else {
+            // Mix between orange and red
+            const mix = (normalized - 0.5) * 2; // Scale [0.5, 1] -> [0, 1]
+            return mixColor('#ff8c00', '#ff0000', mix);
+        }
+    }
+
+    function mixColor(color1, color2, weight) {
+        var color1Rgb = hexToRgb(color1),
+            color2Rgb = hexToRgb(color2),
+            r = Math.round(mix(color1Rgb.r, color2Rgb.r, weight)),
+            g = Math.round(mix(color1Rgb.g, color2Rgb.g, weight)),
+            b = Math.round(mix(color1Rgb.b, color2Rgb.b, weight));
+        return rgbToHex(r, g, b);
+    }
+
+    function mix(start, end, weight) {
+        return start + (end - start) * weight;
+    }
+
+    function hexToRgb(hex) {
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+
+    var originalGeoJsonData;
+
+    var minMean, maxMean;
+
+    function calculateMinMaxMean(geojsonData) {
+        const means = geojsonData.features.map(feature => feature.properties._mean);
+        minMean = Math.min(...means);
+        maxMean = Math.max(...means);
+    }
+
+    $.getJSON('inputStreet.geojson', function(data) {
+        originalGeoJsonData = data;
+        calculateMinMaxMean(originalGeoJsonData); // Calculate min and max mean values
+        L.geoJson(originalGeoJsonData, {
+            style: function(feature) {
+                return { color: getColor(feature.properties._mean), weight: 2, fillOpacity: 0.5 };
+            }
+        }).addTo(map);
+    });
+
+
+
+    var treeLayer = L.layerGroup(); // Initialize with an empty layer group
+    var schoolLayer = L.layerGroup(); // Initialize with an empty layer group
+
+    // Function to toggle Tree Data
+    function toggleTreeData() {
+        var treeDataVisible = document.getElementById('treeToggleView').checked;
+        if (treeDataVisible) {
+            if (!map.hasLayer(treeLayer)) {
+                $.getJSON('treefolio84.geojson', function(data) {
+                    treeLayer = L.geoJson(data, {
+                        pointToLayer: function(feature, latlng) {
+                            return L.circleMarker(latlng, {radius: 8, fillColor: "#228B22", color: "#000", weight: 3, opacity: 1, fillOpacity: 0.8});
+                        }
+                    }).addTo(map);
+                });
+            }
+        } else {
+            if (treeLayer) map.removeLayer(treeLayer);
+        }
+    }
+
+    // Function to toggle School Data and draw initial heating circles
+    function toggleSchoolData() {
+        var schoolDataVisible = document.getElementById('schoolToggleView').checked;
+        if (schoolDataVisible) {
+            if (!map.hasLayer(schoolLayer)) {
+                $.getJSON('schoolsBK17.geojson', function(data) {
+                    schoolLayer = L.geoJson(data, {
+                        pointToLayer: function(feature, latlng) {
+                            // Original school circle marker
+                            var originalCircle = L.circleMarker(latlng, {
+                                radius: 8,
+                                fillColor: "#ff7800",
+                                color: "#000",
+                                weight: 3,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+
+                            // Additional circle for heating distance
+                            var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+                            var heatingCircle = L.circle(latlng, {
+                                color: 'red',
+                                fillColor: '#f03',
+                                fillOpacity: 0.2,
+                                radius: heatingDistance
+                            }).addTo(map);
+
+                            // Group both circles to handle them together
+                            var group = L.layerGroup([originalCircle, heatingCircle]);
+                            return group;
+                        }
+                    }).addTo(map);
+                });
+            }
+        } else {
+            if (schoolLayer) {
+                map.removeLayer(schoolLayer);
+            }
+        }
+    }
+
+
+    // Function to toggle tree settings visibility
+    function toggleTreeSettings() {
+        toggleTreeData();
+        var treeSettings = document.getElementById('treeSettings');
+        var treeToggle = document.getElementById('treeToggleView').checked;
+        treeSettings.style.display = treeToggle ? "block" : "none";
+    }
+
+    // Function to toggle school settings visibility
+    function toggleSchoolSettings() {
+        toggleSchoolData();
+        var schoolSettings = document.getElementById('schoolSettings');
+        var schoolToggle = document.getElementById('schoolToggleView').checked;
+        schoolSettings.style.display = schoolToggle ? "block" : "none";
+    }
+
+    function applySchoolEffect(plantableAreas, schoolEffect, schoolDistance) {
+        plantableAreas.forEach(area => {
+            const areaCentroid = calculateCentroid(area.geometry);
+            schoolLayer.eachLayer(function(schoolFeatureLayer) {
+                let schoolPoint;
+                // Check if the layer is a GeoJSON layer with a feature property
+                if (schoolFeatureLayer.feature && schoolFeatureLayer.feature.geometry) {
+                    schoolPoint = schoolFeatureLayer.feature.geometry.coordinates;
+                } else if (schoolFeatureLayer.getLatLng) { // For L.CircleMarker or similar
+                    let latLng = schoolFeatureLayer.getLatLng();
+                    schoolPoint = [latLng.lng, latLng.lat]; // Note the order: [longitude, latitude]
+                } else {
+                    return; // Skip this layer if it's neither
+                }
+
+                schoolPoint = schoolPoint.toString().split(",");
+                const distance = getDistance(parseFloat(areaCentroid[0]), parseFloat(areaCentroid[1]), parseFloat(schoolPoint[1]), parseFloat(schoolPoint[0])); // Adjusting for GeoJSON [long, lat]
+                if (distance <= schoolDistance) {
+                    area.properties._mean += schoolEffect; // Increase mean for schools
+                }
+            });
+        });
+        displayGeoJson(plantableAreas); // Make sure this function correctly re-renders the areas on the map
+    }
+
+
+
+    function getBoundingBox(centerPoint, distance) {
+        var latRadian = centerPoint[0] * Math.PI / 180;
+
+        var degLatKm = 110.574235;
+        var degLongKm = 110.572833 * Math.cos(latRadian);
+        var deltaLat = distance / 1000.0 / degLatKm;
+        var deltaLong = distance / 1000.0 / degLongKm;
+
+        return {
+            minLat: centerPoint[0] - deltaLat,
+            maxLat: centerPoint[0] + deltaLat,
+            minLng: centerPoint[1] - deltaLong,
+            maxLng: centerPoint[1] + deltaLong
+        };
+    }
+
+    function isPointInBoundingBox(point, bbox) {
+        return point[0] >= bbox.minLat && point[0] <= bbox.maxLat &&
+            point[1] >= bbox.minLng && point[1] <= bbox.maxLng;
+    }
+
+    function applyTreeEffect(plantableAreas, treeEffect, treeDistance) {
+        plantableAreas.forEach(area => {
+            // Ensure the centroid is calculated in [latitude, longitude] order
+            const areaCentroid = calculateCentroid(area.geometry); // Assuming this returns [lat, lng]
+            // Adjust the order of coordinates for the bounding box calculation if necessary
+            const bbox = getBoundingBox(areaCentroid, treeDistance);
+
+            treeLayer.eachLayer(function(treeFeatureLayer) {
+                // Assuming tree coordinates are in [longitude, latitude] order, adjust if necessary
+                const treePoint = treeFeatureLayer.feature.geometry.coordinates;
+                // Ensure the order is [latitude, longitude] for consistency with the bounding box
+                if (isPointInBoundingBox([treePoint[1], treePoint[0]], bbox)) {
+                    // Calculate distance in the expected order of coordinates
+                    const distance = getDistance(parseFloat(areaCentroid[0]), parseFloat(areaCentroid[1]), parseFloat(treePoint[1]), parseFloat(treePoint[0]));
+                    if (distance <= treeDistance) {
+                        area.properties._mean -= treeEffect;
+                    }
+                }
+            });
+        });
+        displayGeoJson(plantableAreas);
+    }
+
+
+
+
+
+
+    document.getElementById('schoolHeatingDistance').addEventListener('change', function() {
+        updateSchoolHeatingDistance();
+    });
+
+    var heatingCircles = []; // Array to keep track of heating circles
+
+
+    function updateSchoolHeatingDistance() {
+        // Remove existing school layers
+        if (map.hasLayer(schoolLayer)) {
+            map.removeLayer(schoolLayer);
+        }
+        schoolLayer = L.layerGroup().addTo(map);
+
+        // Fetch and redraw schools with new heating distance
+        var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+        $.getJSON('schoolsBK17.geojson', function(data) {
+            L.geoJson(data, {
+                pointToLayer: function(feature, latlng) {
+                    // Original school circle marker
+                    var originalCircle = L.circleMarker(latlng, {
+                        radius: 8,
+                        fillColor: "#ff7800",
+                        color: "#000",
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(schoolLayer);
+
+                    // Heating circle with dynamic radius
+                    L.circle(latlng, {
+                        color: 'red',
+                        fillColor: '#f03',
+                        fillOpacity: 0.2,
+                        radius: heatingDistance
+                    }).addTo(schoolLayer);
+
+                    return originalCircle;
+                }
+            });
+        });
+    }
+
+
+
+
+    function clearSchoolHeatingCircles() {
+        // Remove existing heating circles
+        schoolLayer.eachLayer(function(layer) {
+            if (layer._heatingCircle) {
+                map.removeLayer(layer._heatingCircle);
+                delete layer._heatingCircle; // Clean up reference to the removed circle
+            }
+        });
+    }
+
+
+
+
+</script>
+
+</body>
+</html>
