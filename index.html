@@ -140,6 +140,34 @@
             <button type="button" onclick="updateTreePlanting()">Update Tree Planting</button>
             <h4 id="results">...</h4>
 
+
+            <div class="input-group">
+                <label>Effect Type:</label>
+                <label><input type="radio" name="effectType" value="binary" onchange="toggleGaussianSettings()" checked> Binary</label>
+                <label><input type="radio" name="effectType" value="gaussian" onchange="toggleGaussianSettings()"> Gaussian</label>
+            </div>
+            <div id="gaussianSettings" style="display: none;">
+                <div class="input-group">
+                    <label for="gaussianSigma">Gaussian Sigma:</label>
+                    <input type="number" id="gaussianSigma" name="gaussianSigma" step="0.1" value="1">
+                </div>
+                <div class="input-group">
+                    <label for="gaussianAmplitude">Gaussian Amplitude:</label>
+                    <input type="number" id="gaussianAmplitude" name="gaussianAmplitude" step="0.1" value="1">
+                </div>
+            </div>
+
+            <label class="custom-checkbox">Show Heat Index
+                <input type="checkbox" id="heatIndexToggle" name="heatIndexToggle" onchange="toggleHeatIndex()">
+                <span class="checkmark"></span>
+            </label>
+            <div id="heatIndexSettings" style="display: none;">
+                <div class="input-group">
+                    <label for="heatIndexScale">Heat Index Scale:</label>
+                    <input type="range" id="heatIndexScale" name="heatIndexScale" min="0.1" max="10" step="0.1" value="1">
+                </div>
+            </div>
+
             <!-- Tree Data Toggle and Settings -->
             <label class="custom-checkbox">View Tree Data
                 <input type="checkbox" id="treeToggleView" name="treeToggleView" onchange="toggleTreeSettings()">
@@ -162,6 +190,10 @@
                 <span class="checkmark"></span>
             </label>
             <div id="schoolSettings" style="display: none;">
+                <label class="custom-checkbox">Show School Radius
+                    <input type="checkbox" id="schoolRadiusToggle" name="schoolRadiusToggle" onchange="toggleSchoolRadius()" checked>
+                    <span class="checkmark"></span>
+                </label>
                 <div class="input-group">
                     <label for="schoolHeatingEffect">School Heating Effect:</label>
                     <input type="number" id="schoolHeatingEffect" name="schoolHeatingEffect" step="0.1" value="0.1">
@@ -180,6 +212,8 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-geometryutil@0.10.1/src/leaflet.geometryutil.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
     var map = L.map('map',
     {
@@ -199,15 +233,54 @@
     var currentGeoJsonLayer = null;
 
     function displayGeoJson(geojsonData) {
-        // Remove the existing GeoJSON layer if it exists
         if (currentGeoJsonLayer) {
             map.removeLayer(currentGeoJsonLayer);
         }
 
-        // Add a new GeoJSON layer with the updated data
         currentGeoJsonLayer = L.geoJson(geojsonData, {
             style: function(feature) {
-                return { color: getColor(feature.properties._mean), weight: 2, fillOpacity: 0.5 };
+                // try by color
+                return { color: feature.properties.color, weight: 2, fillOpacity: 0.5 };
+                // return { color: getColor(feature.properties._mean, heatIndexScale), weight: 2, fillOpacity: 0.5 };
+            }
+        }).addTo(map);
+    }
+
+//     function displayGeoJson(geojsonData) {
+//     if (currentGeoJsonLayer) {
+//         map.removeLayer(currentGeoJsonLayer);
+//     }
+
+//     currentGeoJsonLayer = L.geoJson(geojsonData, {
+//         style: function(feature) {
+//             // Generate a random color for each plantable area
+//             const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+//             return { color: randomColor, weight: 2, fillOpacity: 0.5 };
+//         },
+//         onEachFeature: function(feature, layer) {
+//             if (feature.properties.canopy_typ === 'plantable') {
+//                 const centroid = calculateCentroid(feature.geometry);
+//                 const marker = L.marker(centroid, {
+//                     icon: L.divIcon({
+//                         className: 'centroid-marker',
+//                         html: '<div style="background-color: red; width: 10px; height: 10px; border-radius: 50%;"></div>',
+//                         iconSize: [10, 10]
+//                     })
+//                 }).addTo(map);
+//             }
+//         }
+//     }).addTo(map);
+// }
+
+
+    function displayHeatIndexGeoJson(geojsonData, heatIndexScale) {
+        if (currentGeoJsonLayer) {
+            map.removeLayer(currentGeoJsonLayer);
+        }
+
+        currentGeoJsonLayer = L.geoJson(geojsonData, {
+            style: function(feature) {
+                return { color: getColor(feature.properties._mean, heatIndexScale), weight: 2, fillOpacity: 0.5 };
             }
         }).addTo(map);
     }
@@ -286,21 +359,16 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
     applySchoolEffect(plantableAreas, schoolEffect, schoolDistance);
     applyTreeEffect(plantableAreas, treeEffect, treeDistance);
 
-    // Find the minimum _mean value to adjust all values to positive if necessary
-    const minMean = Math.min(...plantableAreas.map(area => area.properties._mean));
-    const adjustment = minMean < 0 ? Math.abs(minMean) : 0;
-
-    // Adjust all _mean values to ensure they are positive
-    plantableAreas.forEach(area => area.properties._mean += adjustment);
-
     let treesPlanted = 0;
 
-    // Display GeoJSON with original styling
-    displayGeoJson(geojsonData);
-
     while (treesPlanted < totalTrees && plantableAreas.length > 0) {
-        // Sort plantable areas by _mean property in descending order
-        plantableAreas.sort((a, b) => b.properties._mean - a.properties._mean);
+        // Calculate the combined mean for each plantable area
+        plantableAreas.forEach(area => {
+            area.properties._combinedMean = (area.properties._mean || 0) + (area.properties._heatIndex || 0) + (area.properties._schoolmean || 0) + (area.properties._treemean || 0);
+        });
+
+        // Sort plantable areas by _combinedMean property in descending order
+        plantableAreas.sort((a, b) => b.properties._combinedMean - a.properties._combinedMean);
 
         const plantingArea = plantableAreas[0];
 
@@ -310,7 +378,7 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
 
         // Apply cooling effect to the planted area if applicable
         if (coolingEffect > 0) {
-            plantingArea.properties._mean = Math.max(0, plantingArea.properties._mean - coolingEffect);
+            plantingArea.properties._treemean = (plantingArea.properties._treemean || 0) - coolingEffect;
         }
 
         // Filter and adjust remaining plantable areas considering cooling effect and distance
@@ -318,9 +386,9 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
             const areaCentroid = calculateCentroid(area.geometry);
             const distance = getDistance(centroid[0], centroid[1], areaCentroid[0], areaCentroid[1]);
             if (coolingDistance > 0 && distance <= coolingDistance && coolingEffect > 0) {
-                area.properties._mean = Math.max(0, area.properties._mean - coolingEffect * (coolingDistance - distance) / coolingDistance);
+                area.properties._treemean = (area.properties._treemean || 0) - coolingEffect * (coolingDistance - distance) / coolingDistance;
             }
-            return area.properties._mean > 0;
+            return area.properties._combinedMean > 0;
         });
     }
 
@@ -357,19 +425,51 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         return R * c; // in meters
     }
 
-    function getColor(heatIndex) {
+    // function getDistance(lat1, lon1, lat2, lon2) {
+    //     // Euclidean distance between two points on Earth
+    //     var x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2);
+    //     var y = (lat2 - lat1);
+    //     return Math.sqrt(x * x + y * y); // in meters
+    // }
+
+
+
+    function getColor(heatIndex, scale) {
+        console.log("max and min mean", maxMean, minMean);
         const range = maxMean - minMean;
-        const normalized = (heatIndex - minMean) / range;
+        const normalizedIndex = (heatIndex - minMean) / range;
+        const scaledIndex = Math.pow(normalizedIndex, scale);
 
         // Interpolate between green (0), orange (0.5), and red (1)
-        if (normalized < 0.5) {
+        if (scaledIndex < 0.5) {
             // Mix between green and orange
-            const mix = normalized * 2; // Scale [0, 0.5] -> [0, 1]
+            const mix = scaledIndex * 2;
             return mixColor('#008000', '#ff8c00', mix);
         } else {
             // Mix between orange and red
-            const mix = (normalized - 0.5) * 2; // Scale [0.5, 1] -> [0, 1]
+            const mix = (scaledIndex - 0.5) * 2;
             return mixColor('#ff8c00', '#ff0000', mix);
+        }
+    }
+
+    var showHeatIndex = false;
+    var heatIndexScale = 1;
+
+    function toggleHeatIndex() {
+        showHeatIndex = document.getElementById('heatIndexToggle').checked;
+        document.getElementById('heatIndexSettings').style.display = showHeatIndex ? 'block' : 'none';
+        updateHeatIndexScale();
+    }
+
+    function updateHeatIndexScale() {
+        heatIndexScale = parseFloat(document.getElementById('heatIndexScale').value);
+        if (showHeatIndex) {
+            // calculateMinMaxMean(originalGeoJsonData)
+            // displayHeatIndexGeoJson(originalGeoJsonData, heatIndexScale);
+            displayGeoJson(originalGeoJsonData);
+        } else {
+            // calculateMinMaxMean(originalGeoJsonData)
+            displayGeoJson(originalGeoJsonData);
         }
     }
 
@@ -405,21 +505,196 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
     var minMean, maxMean;
 
     function calculateMinMaxMean(geojsonData) {
-        const means = geojsonData.features.map(feature => feature.properties._mean);
+
+        // check what features are enabled and calculate min and max mean
+        treemean = [];
+        schoolmean = [];
+        heatmean = [];
+        if(document.getElementById('treeToggleView').checked) {
+            treemean = geojsonData.features.map(feature => feature.properties._treeindex);
+        }
+        if(document.getElementById('schoolToggleView').checked) {
+            schoolmean = geojsonData.features.map(feature => feature.properties._schoolmean);
+        }
+        if(document.getElementById('heatIndexToggle').checked) {
+            heatmean = geojsonData.features.map(feature => feature.properties._mean);
+        }
+
+        means = treemean.concat(schoolmean, heatmean);
+        console.log(means);
+        // cast out the undefined values
+        means = means.filter(function (el) {
+            return el != null;
+        });
+
+        // const means = geojsonData.features.map(feature => feature.properties.);
         minMean = Math.min(...means);
         maxMean = Math.max(...means);
+        if (minMean === maxMean) {
+            minMean = 0;
+            maxMean = 1;
+        }
+        // if infinity
+        if (minMean === Infinity) {
+            minMean = 0;
+            maxMean = 1;
+        }
+        console.log("Calculated min and max mean values:", minMean, maxMean);
     }
 
     $.getJSON('inputStreet.geojson', function(data) {
         originalGeoJsonData = data;
         calculateMinMaxMean(originalGeoJsonData); // Calculate min and max mean values
-        L.geoJson(originalGeoJsonData, {
-            style: function(feature) {
-                return { color: getColor(feature.properties._mean), weight: 2, fillOpacity: 0.5 };
-            }
-        }).addTo(map);
+        // displayGeoJson(originalGeoJsonData, showHeatIndex, heatIndexScale);
+        displayGeoJson(originalGeoJsonData);
+
+
+        $.getJSON('schoolsBK17.geojson', function(data) {
+        L.geoJson(data).eachLayer(function(layer) {
+            schoolLayer.addLayer(layer); // This should add each school to the schoolLayer
+        });
+        console.log(schoolLayer.getLayers().length); // This should now log a non-zero number
+        // drawLinesToSchoolsWithinRadius();
     });
 
+
+    });
+
+
+
+function drawLinesToClosestSchoolFromLayer() {
+    originalGeoJsonData.features.forEach(plantableArea => {
+        if (plantableArea.properties.canopy_typ === 'plantable') {
+            const plantableCentroid = calculateCentroid(plantableArea.geometry);
+
+            let closestSchoolPoint = null;
+            let minDistance = Infinity;
+
+            console.log(schoolLayer);
+            // log the length of the schoolLayer to ensure it's not empty
+            console.log(schoolLayer.getLayers().length);
+
+            schoolLayer.eachLayer(function(layer) {
+            let schoolPoint;
+            if (layer.feature && layer.feature.geometry) {
+                // Handle MultiPoint geometry
+                if (layer.feature.geometry.type === 'MultiPoint') {
+                    // Assuming we're interested in the first point of the MultiPoint
+                    const firstPointCoords = layer.feature.geometry.coordinates[0];
+                    schoolPoint = [firstPointCoords[1], firstPointCoords[0]]; // Correct [lat, lng] order for Leaflet
+                } else {
+                    // For simplicity, handling other types as before (assuming Point)
+                    schoolPoint = [layer.feature.geometry.coordinates[1], layer.feature.geometry.coordinates[0]];
+                }
+            } else if (layer.getLatLng) {
+                // This is for layers that are not GeoJSON (e.g., L.Marker, L.CircleMarker)
+                let latLng = layer.getLatLng();
+                schoolPoint = [latLng.lat, latLng.lng]; // Leaflet uses [lat, lng]
+            } else {
+                console.log('Unknown layer type or geometry not defined');
+                return; // Skip this layer if it doesn't have recognizable geometry
+            }
+
+            // Calculate distance (ensure your getDistance function is using the correct coordinate order)
+            const distance = getDistance(plantableCentroid[0], plantableCentroid[1], schoolPoint[0], schoolPoint[1]);
+            console.log(plantableCentroid);
+            console.log(schoolPoint);
+            console.log(distance);
+            if (distance < minDistance) {
+
+                closestSchoolPoint = schoolPoint;
+                minDistance = distance;
+            }
+        });
+
+
+        // When adding to map, ensure closestSchoolPoint is correctly structured
+        if (closestSchoolPoint) {
+            L.polyline([
+                // [plantableCentroid[1], plantableCentroid[0]],
+                [plantableCentroid[0], plantableCentroid[1]],
+                closestSchoolPoint // This should be [lat, lng]
+            ], {
+                color: 'blue',
+                weight: 1,
+                opacity: 0.5
+            }).addTo(map);
+        }
+
+
+        }
+    });
+}
+
+function drawLinesToSchoolsWithinRadius() {
+    const radius = 1000; // Define your radius in meters
+
+    originalGeoJsonData.features.forEach(plantableArea => {
+        if (plantableArea.properties.canopy_typ === 'plantable') {
+            const plantableCentroid = calculateCentroid(plantableArea.geometry);
+
+            // No longer keeping track of the closest school or minimum distance
+            console.log(schoolLayer);
+            console.log(schoolLayer.getLayers().length);
+
+            schoolLayer.eachLayer(function(layer) {
+                let schoolPoint;
+                if (layer.feature && layer.feature.geometry) {
+                    // Handle MultiPoint geometry
+                    if (layer.feature.geometry.type === 'MultiPoint') {
+                        const firstPointCoords = layer.feature.geometry.coordinates[0];
+                        schoolPoint = [firstPointCoords[1], firstPointCoords[0]]; // [lat, lng] order for Leaflet
+                    } else {
+                        // For simplicity, handling other types as before (assuming Point)
+                        schoolPoint = [layer.feature.geometry.coordinates[1], layer.feature.geometry.coordinates[0]];
+                    }
+                } else if (layer.getLatLng) {
+                    // This is for layers that are not GeoJSON (e.g., L.Marker, L.CircleMarker)
+                    let latLng = layer.getLatLng();
+                    schoolPoint = [latLng.lat, latLng.lng]; // Leaflet uses [lat, lng]
+                } else {
+                    console.log('Unknown layer type or geometry not defined');
+                    return; // Skip this layer if it doesn't have recognizable geometry
+                }
+
+                // Calculate distance
+                const distance = getDistance(plantableCentroid[0], plantableCentroid[1], schoolPoint[0], schoolPoint[1]);
+                console.log(plantableCentroid);
+                console.log(schoolPoint);
+                console.log(distance);
+                // Draw line if within the specified radius
+                if (distance <= radius) {
+                    L.polyline([
+                        [plantableCentroid[0], plantableCentroid[1]],
+                        schoolPoint // [lat, lng] order
+                    ], {
+                        color: 'blue',
+                        weight: 1,
+                        opacity: 0.5
+                    }).addTo(map);
+                }
+            });
+        }
+    });
+}
+
+
+function loadSchoolDataAndDrawLines() {
+    $.getJSON('schoolsBK17.geojson', function(data) {
+        // Assuming this is where you add schools to schoolLayer
+        L.geoJson(data, {
+            onEachFeature: function(feature, layer) {
+                schoolLayer.addLayer(layer);
+            }
+        });
+        // After adding schools to schoolLayer, now draw lines
+        // drawLinesToClosestSchoolFromLayer();
+    });
+}
+
+
+// Call this function after your map and datasets have been initialized
+// drawLinesToClosestSchoolFromLayer();
 
 
     var treeLayer = L.layerGroup(); // Initialize with an empty layer group
@@ -433,7 +708,7 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
                 $.getJSON('treefolio84.geojson', function(data) {
                     treeLayer = L.geoJson(data, {
                         pointToLayer: function(feature, latlng) {
-                            return L.circleMarker(latlng, {radius: 8, fillColor: "#228B22", color: "#000", weight: 3, opacity: 1, fillOpacity: 0.8});
+                            return L.circle(latlng, {radius: 8, fillColor: "#228B22", color: "#228B22", weight: 3, opacity: 1, fillOpacity: 0.8});
                         }
                     }).addTo(map);
                 });
@@ -442,6 +717,8 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
             if (treeLayer) map.removeLayer(treeLayer);
         }
     }
+
+    var schoolCircles = [];
 
     // Function to toggle School Data and draw initial heating circles
     function toggleSchoolData() {
@@ -463,23 +740,48 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
 
                             // Additional circle for heating distance
                             var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
-                            var heatingCircle = L.circle(latlng, {
-                                color: 'red',
-                                fillColor: '#f03',
-                                fillOpacity: 0.2,
-                                radius: heatingDistance
-                            }).addTo(map);
+                            var effectType = document.querySelector('input[name="effectType"]:checked').value;
+                            var effectCircle;
+
+                            if (effectType === 'binary') {
+                                effectCircle = L.circle(latlng, {
+                                    color: 'red',
+                                    // fillColor: '#f03',
+                                    fillOpacity: 0,
+                                    radius: heatingDistance
+                                });
+                                schoolCircles.push(effectCircle);
+                                effectCircle.addTo(map);    
+                                originalCircle._heatingCircle = effectCircle;
+                            } else if (effectType === 'gaussian') {
+                                effectCircle = L.circle(latlng, {
+                                    color: 'blue',
+                                    // fillColor: '#b0e0e6',
+                                    // fillOpacity: 0.2,
+                                    radius: heatingDistance,
+                                    interactive: false
+                                });
+                                schoolCircles.push(effectCircle);
+                                effectCircle.addTo(map);
+                                originalCircle._gaussianCircle = effectCircle;
+                            }
 
                             // Group both circles to handle them together
-                            var group = L.layerGroup([originalCircle, heatingCircle]);
+                            var group = L.layerGroup([originalCircle]).addTo(map);
                             return group;
                         }
                     }).addTo(map);
                 });
             }
+            // drawLinesToClosestSchoolWithinRadius();
         } else {
             if (schoolLayer) {
                 map.removeLayer(schoolLayer);
+                // remove 
+                schoolCircles.forEach(circle => map.removeLayer(circle));
+                // reset the plantable area colors
+                updatePlantableAreaColors();
+
             }
         }
     }
@@ -501,31 +803,191 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         schoolSettings.style.display = schoolToggle ? "block" : "none";
     }
 
-    function applySchoolEffect(plantableAreas, schoolEffect, schoolDistance) {
-        plantableAreas.forEach(area => {
-            const areaCentroid = calculateCentroid(area.geometry);
-            schoolLayer.eachLayer(function(schoolFeatureLayer) {
-                let schoolPoint;
-                // Check if the layer is a GeoJSON layer with a feature property
-                if (schoolFeatureLayer.feature && schoolFeatureLayer.feature.geometry) {
-                    schoolPoint = schoolFeatureLayer.feature.geometry.coordinates;
-                } else if (schoolFeatureLayer.getLatLng) { // For L.CircleMarker or similar
-                    let latLng = schoolFeatureLayer.getLatLng();
-                    schoolPoint = [latLng.lng, latLng.lat]; // Note the order: [longitude, latitude]
-                } else {
-                    return; // Skip this layer if it's neither
-                }
-
-                schoolPoint = schoolPoint.toString().split(",");
-                const distance = getDistance(parseFloat(areaCentroid[0]), parseFloat(areaCentroid[1]), parseFloat(schoolPoint[1]), parseFloat(schoolPoint[0])); // Adjusting for GeoJSON [long, lat]
-                if (distance <= schoolDistance) {
-                    area.properties._mean += schoolEffect; // Increase mean for schools
-                }
-            });
-        });
-        displayGeoJson(plantableAreas); // Make sure this function correctly re-renders the areas on the map
+    function toggleGaussianSettings() {
+        var effectType = document.querySelector('input[name="effectType"]:checked').value;
+        var gaussianSettings = document.getElementById('gaussianSettings');
+        gaussianSettings.style.display = effectType === 'gaussian' ? 'block' : 'none';
     }
 
+    function gaussianWeight(distance, effectDistance, sigma, amplitude) {
+        var z = distance / (effectDistance * sigma);
+        return amplitude * Math.exp(-0.5 * z * z);
+    }
+
+
+    function applySchoolEffect(geojsonData, schoolEffect, schoolDistance) {
+
+    // If view school data isn't checked, return the original geojson data
+    if (!document.getElementById('schoolToggleView').checked) {
+        console.log('School data not visible, returning original geojson data');
+        return geojsonData;
+    }
+
+    var effectType = document.querySelector('input[name="effectType"]:checked').value;
+    var sigma = parseFloat(document.getElementById('gaussianSigma').value);
+    var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
+
+    geojsonData.features.forEach(plantableArea => {
+        if (plantableArea.properties.canopy_typ === 'plantable') {
+            const plantableCentroid = calculateCentroid(plantableArea.geometry);
+
+            schoolLayer.eachLayer(function(layer) {
+                let schoolPoint;
+                if (layer.feature && layer.feature.geometry) {
+                    if (layer.feature.geometry.type === 'MultiPoint') {
+                        const firstPointCoords = layer.feature.geometry.coordinates[0];
+                        schoolPoint = [firstPointCoords[1], firstPointCoords[0]];
+                    } else {
+                        schoolPoint = [layer.feature.geometry.coordinates[1], layer.feature.geometry.coordinates[0]];
+                    }
+                } else if (layer.getLatLng) {
+                    let latLng = layer.getLatLng();
+                    schoolPoint = [latLng.lat, latLng.lng];
+                } else {
+                    console.log('Unknown layer type or geometry not defined');
+                    return;
+                }
+
+                const distance = getDistance(plantableCentroid[0], plantableCentroid[1], schoolPoint[0], schoolPoint[1]);
+                if (effectType === 'binary') {
+                    if (distance <= schoolDistance) {
+                        console.log("Applying binary school effect");
+                        console.log("Distance:", schoolEffect);
+                        if(!plantableArea.properties._schoolmean) {
+                            plantableArea.properties._schoolmean = 0;
+                        }                        
+                        plantableArea.properties._schoolmean += schoolEffect;
+                        console.log("School mean:", plantableArea.properties._schoolmean);
+                    }
+                } else if (effectType === 'gaussian') {
+                    var weight = gaussianWeight(distance, schoolDistance, sigma, amplitude);
+                    if(!plantableArea.properties._schoolmean) {
+                        plantableArea.properties._schoolmean = 0;
+                    }
+                    plantableArea.properties._schoolmean += schoolEffect * weight;
+                }
+            });
+        }
+    });
+    return geojsonData;
+}
+
+    // function updatePlantableAreaColors() {
+    //     let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+
+    //     // Reset the _mean values to the original values
+    //     geojsonData.features.forEach(feature => {
+    //         if (feature.properties.canopy_typ === 'plantable') {
+    //             feature.properties._mean = originalGeoJsonData.features.find(f => f.properties.treeindex === feature.properties.treeindex).properties._mean;
+    //         }
+    //     });
+
+
+
+
+    //     let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
+    //     let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+    //     let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
+    //     let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+
+    //     geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
+    //     geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
+
+    //     calculateMinMaxMean(geojsonData);
+    //     updateMeanColors(geojsonData);
+    //     displayGeoJson(geojsonData);
+    // }
+
+
+    function updatePlantableAreaColors() {
+    let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+
+    // Reset _mean values to 0
+    geojsonData.features.forEach(feature => {
+        if (feature.properties.canopy_typ === 'plantable') {
+            feature.properties._heatIndex = 0;
+            feature.properties._displayMean = 0;
+            // reset color
+            feature.properties.color = '#008000';
+            // feature.properties._mean = 0;
+        }
+    });
+
+    // Apply heat index effect
+    var heatIndexToggle = document.getElementById('heatIndexToggle').checked;
+    var heatIndexScale = parseFloat(document.getElementById('heatIndexScale').value);
+    if (heatIndexToggle) {
+        console.log("Applying heat index effect");
+        geojsonData.features.forEach(feature => {
+            if (feature.properties.canopy_typ === 'plantable') {
+                const heatIndex = getHeatIndex(feature.properties._mean, heatIndexScale);
+                // feature.properties._heatIndex = heatIndex;
+            }
+        });
+    } 
+
+    let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
+    let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+    let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
+    let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+
+    // Apply school effect
+    geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
+
+    // Apply tree effect
+    geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
+
+    // Combine heat index and school/tree effects
+    geojsonData.features.forEach(feature => {
+        if (feature.properties.canopy_typ === 'plantable') {
+            if(heatIndexToggle) {
+                feature.properties._displayMean = feature.properties._mean + (feature.properties._heatIndex || 0) + (feature.properties._schoolmean || 0);
+            } else {
+                console.log("schoolmean", feature.properties._schoolmean);
+                // If heat index is not applied, only use the original _mean value (without heat index effect
+                feature.properties._displayMean = (feature.properties._heatIndex || 0) + (feature.properties._schoolmean || 0);
+            }
+        }
+    });
+
+    calculateMinMaxMean(geojsonData);
+    updateMeanColors(geojsonData);
+    displayGeoJson(geojsonData);
+}
+function getHeatIndex(mean, scale) {
+    const range = maxMean - minMean;
+    const normalizedIndex = (mean - minMean) / range;
+    const scaledIndex = Math.pow(normalizedIndex, scale);
+    return scaledIndex;
+}
+
+
+    function getMeanColor(mean) {
+    // Use the global minMean and maxMean values
+    const normalizedMean = (mean - minMean) / (maxMean - minMean);
+
+    // Interpolate between green (0), orange (0.5), and red (1)
+    if (normalizedMean < 0.5) {
+        // Mix between green and orange
+        const mix = normalizedMean * 2;
+        return mixColor('#008000', '#ff8c00', mix);
+    } else {
+        // Mix between orange and red
+        const mix = (normalizedMean - 0.5) * 2;
+        return mixColor('#ff8c00', '#ff0000', mix);
+    }
+}
+
+
+function updateMeanColors(geojsonData) {
+    geojsonData.features.forEach(feature => {
+        if (feature.properties.canopy_typ === 'plantable') {
+            const mean = feature.properties._displayMean;
+            console.log("Getting mean color for:", mean);
+            feature.properties.color = getMeanColor(mean);
+        }
+    });
+}
 
 
     function getBoundingBox(centerPoint, distance) {
@@ -548,78 +1010,45 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         return point[0] >= bbox.minLat && point[0] <= bbox.maxLat &&
             point[1] >= bbox.minLng && point[1] <= bbox.maxLng;
     }
+    function applyTreeEffect(geojsonData, treeEffect, treeDistance) {
+    var effectType = document.querySelector('input[name="effectType"]:checked').value;
+    var sigma = parseFloat(document.getElementById('gaussianSigma').value);
 
-    function applyTreeEffect(plantableAreas, treeEffect, treeDistance) {
-        plantableAreas.forEach(area => {
-            // Ensure the centroid is calculated in [latitude, longitude] order
-            const areaCentroid = calculateCentroid(area.geometry); // Assuming this returns [lat, lng]
-            // Adjust the order of coordinates for the bounding box calculation if necessary
-            const bbox = getBoundingBox(areaCentroid, treeDistance);
+    treeLayer.eachLayer(function(treeFeatureLayer) {
+        const treePoint = [treeFeatureLayer.feature.geometry.coordinates[1], treeFeatureLayer.feature.geometry.coordinates[0]];
 
-            treeLayer.eachLayer(function(treeFeatureLayer) {
-                // Assuming tree coordinates are in [longitude, latitude] order, adjust if necessary
-                const treePoint = treeFeatureLayer.feature.geometry.coordinates;
-                // Ensure the order is [latitude, longitude] for consistency with the bounding box
-                if (isPointInBoundingBox([treePoint[1], treePoint[0]], bbox)) {
-                    // Calculate distance in the expected order of coordinates
-                    const distance = getDistance(parseFloat(areaCentroid[0]), parseFloat(areaCentroid[1]), parseFloat(treePoint[1]), parseFloat(treePoint[0]));
+        geojsonData.features.forEach(feature => {
+            if (feature.properties.canopy_typ === 'plantable') {
+                const areaCentroid = calculateCentroid(feature.geometry);
+                const distance = getDistance(areaCentroid[0], areaCentroid[1], treePoint[0], treePoint[1]);
+
+                if (effectType === 'binary') {
                     if (distance <= treeDistance) {
-                        area.properties._mean -= treeEffect;
+                        feature.properties._mean -= treeEffect;
                     }
+                } else if (effectType === 'gaussian') {
+                    var weight = gaussianWeight(distance, treeDistance, sigma);
+                    feature.properties._mean -= treeEffect * weight;
                 }
-            });
+            }
         });
-        displayGeoJson(plantableAreas);
-    }
-
-
-
-
-
-
-    document.getElementById('schoolHeatingDistance').addEventListener('change', function() {
-        updateSchoolHeatingDistance();
     });
+    return geojsonData;
+}
+
+
 
     var heatingCircles = []; // Array to keep track of heating circles
 
 
     function updateSchoolHeatingDistance() {
         // Remove existing school layers
+        schoolCircles.forEach(circle => map.removeLayer(circle));
         if (map.hasLayer(schoolLayer)) {
             map.removeLayer(schoolLayer);
         }
-        schoolLayer = L.layerGroup().addTo(map);
-
-        // Fetch and redraw schools with new heating distance
-        var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
-        $.getJSON('schoolsBK17.geojson', function(data) {
-            L.geoJson(data, {
-                pointToLayer: function(feature, latlng) {
-                    // Original school circle marker
-                    var originalCircle = L.circleMarker(latlng, {
-                        radius: 8,
-                        fillColor: "#ff7800",
-                        color: "#000",
-                        weight: 3,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(schoolLayer);
-
-                    // Heating circle with dynamic radius
-                    L.circle(latlng, {
-                        color: 'red',
-                        fillColor: '#f03',
-                        fillOpacity: 0.2,
-                        radius: heatingDistance
-                    }).addTo(schoolLayer);
-
-                    return originalCircle;
-                }
-            });
-        });
+        toggleSchoolData();
     }
-
 
 
 
@@ -634,9 +1063,111 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
     }
 
 
+    function changeEffectType() {
+        var effectType = document.querySelector('input[name="effectType"]:checked').value;
+        if (effectType === 'binary') {
+            // Remove Gaussian circles and revert to binary circles
+            schoolLayer.eachLayer(function(layer) {
+                layer.eachLayer(function(sublayer) {
+                    if (sublayer._gaussianCircle) {
+                        map.removeLayer(sublayer._gaussianCircle);
+                        delete sublayer._gaussianCircle;
+                    }
+                    if (sublayer instanceof L.CircleMarker && !sublayer._heatingCircle) {
+                        var latlng = sublayer.getLatLng();
+                        var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+                        var heatingCircle = L.circle(latlng, {
+                            color: 'red',
+                            fillColor: '#f03',
+                            fillOpacity: 0.2,
+                            radius: heatingDistance
+                        }).addTo(map);
+                        sublayer._heatingCircle = heatingCircle;
+                    }
+                });
+            });
+        } else if (effectType === 'gaussian') {
+            // Remove binary circles and add Gaussian circles
+            schoolLayer.eachLayer(function(layer) {
+                layer.eachLayer(function(sublayer) {
+                    if (sublayer._heatingCircle) {
+                        map.removeLayer(sublayer._heatingCircle);
+                        delete sublayer._heatingCircle;
+                    }
+                    if (sublayer instanceof L.CircleMarker && !sublayer._gaussianCircle) {
+                        var latlng = sublayer.getLatLng();
+                        var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+                        var gaussianCircle = L.circle(latlng, {
+                            color: 'blue',
+                            fillColor: '#b0e0e6',
+                            fillOpacity: 0.5,
+                            radius: heatingDistance,
+                            interactive: false
+                        }).addTo(map);
+                        sublayer._gaussianCircle = gaussianCircle;
+                    }
+                });
+            });
+        }
+        // updateHeatIndexScale();
+        updatePlantableAreaColors();
+    }
+
+    document.getElementById('heatIndexScale').addEventListener('input', updateHeatIndexScale);
+
+    document.querySelectorAll('input[name="effectType"]').forEach(function(radio) {
+        radio.addEventListener('change', changeEffectType);
+    });
+
+    document.getElementById('treeCoolingEffect').addEventListener('change', updatePlantableAreaColors);
+    document.getElementById('treeCoolingDistance').addEventListener('change', updatePlantableAreaColors);
+
+    document.getElementById('gaussianSigma').addEventListener('change', updatePlantableAreaColors);
+    document.getElementById('gaussianAmplitude').addEventListener('change', updatePlantableAreaColors);
+
+document.getElementById('schoolHeatingEffect').addEventListener('change', updatePlantableAreaColors);
+    document.getElementById('schoolHeatingDistance').addEventListener('change', function() {
+        updateSchoolHeatingDistance();
+        updatePlantableAreaColors();
+    });
 
 
-</script>
+document.getElementById('schoolHeatingDistance').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('schoolHeatingEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('treeCoolingDistance').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('treeCoolingEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('heatIndexToggle').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('heatIndexScale').addEventListener('input', updatePlantableAreaColors);
+document.getElementById('schoolToggleView').addEventListener('change', updatePlantableAreaColors);
+
+    function toggleSchoolRadius() {
+        var showSchoolRadius = document.getElementById('schoolRadiusToggle').checked;
+        schoolCircles.forEach(function(circle) {
+            circle.setStyle({ fillOpacity: 0 });
+            if (showSchoolRadius) {
+                circle.setStyle({ opacity: 1 });
+            } else {
+                circle.setStyle({ opacity: 0 });
+            }
+        });
+    }
+
+
+    function toggleTreeRadius() {
+    var showTreeRadius = document.getElementById('treeRadiusToggle').checked;
+    treeLayer.eachLayer(function(layer) {
+        if (layer instanceof L.Circle) {
+            layer.setStyle({ fillOpacity: 0 });
+            if (showTreeRadius) {
+                layer.setStyle({ opacity: 1 });
+            } else {
+                layer.setStyle({ opacity: 0 });
+            }
+        }
+    });
+}
+
+    </script>
 
 </body>
 </html>
