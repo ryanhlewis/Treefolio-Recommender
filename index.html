@@ -208,7 +208,10 @@
                 </div>
             </div>
 
-            
+            <label class="custom-checkbox">Planting View
+                <input type="checkbox" id="plantingViewToggle" name="plantingViewToggle">
+                <span class="checkmark"></span>
+            </label>
         </form>
     </div>
     
@@ -368,8 +371,12 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         treesPlanted++;
 
         // Apply cooling effect to the planted area if applicable
+        // Apply cooling effect to the planted area if applicable
         if (coolingEffect > 0) {
             plantingArea.properties._treemean = (plantingArea.properties._treemean || 0) - coolingEffect;
+            if (document.getElementById('plantingViewToggle').checked) {
+                plantingArea.properties._displayMean = (plantingArea.properties._mean || 0) + (plantingArea.properties._schoolmean || 0) + plantingArea.properties._treemean;
+            }
         }
 
         // Filter and adjust remaining plantable areas considering cooling effect and distance
@@ -390,6 +397,15 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         console.log(`Successfully planted all ${totalTrees} trees.`);
         document.getElementById('results').innerText = `Successfully planted all ${totalTrees} trees.`;
     }
+
+
+    if (document.getElementById('plantingViewToggle').checked) {
+        calculateMinMaxMean(geojsonData);
+        updateMeanColors(geojsonData);
+        displayGeoJson(geojsonData);
+    }
+
+
 }
 
 
@@ -559,6 +575,10 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         originalGeoJsonData = data;
         calculateMinMaxMean(originalGeoJsonData); // Calculate min and max mean values
         // displayGeoJson(originalGeoJsonData, showHeatIndex, heatIndexScale);
+        // set color to default '#008000' on load
+        // originalGeoJsonData.features.forEach(feature => {
+        //     feature.properties.color = '#008000';
+        // });
         displayGeoJson(originalGeoJsonData);
 
 
@@ -1163,7 +1183,12 @@ document.getElementById('heatIndexScale').addEventListener('input', updatePlanta
 document.getElementById('schoolToggleView').addEventListener('change', updatePlantableAreaColors);
 document.getElementById('treeToggleView').addEventListener('change', updatePlantableAreaColors);
 
-
+document.getElementById('plantingViewToggle').addEventListener('change', function() {
+    updateTreePlanting();
+    if (!document.getElementById('plantingViewToggle').checked) {
+        updatePlantableAreaColors();
+    }
+});
     </script>
     <script src="https://cdn.jsdelivr.net/npm/rbush@3.0.1/rbush.min.js"></script>
 
