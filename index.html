@@ -228,6 +228,41 @@
                 </div>
             </div>
 
+
+            <!-- Add the following in the sidebar section of the HTML -->
+            <label class="custom-checkbox">View Street Data
+                <input type="checkbox" id="streetToggleView" name="streetToggleView" onchange="toggleStreetSettings()">
+                <span class="checkmark"></span>
+            </label>
+            <div id="streetSettings" style="display: none;">
+                <label class="custom-checkbox">Show Street Buffer
+                    <input type="checkbox" id="streetBufferToggle" name="streetBufferToggle" onchange="toggleStreetBuffer()" checked>
+                    <span class="checkmark"></span>
+                </label>
+                <div class="input-group">
+                    <label for="streetEffect">Street Effect:</label>
+                    <input type="number" id="streetEffect" name="streetEffect" step="0.1" value="0.1">
+                </div>
+                <div class="input-group">
+                    <label for="streetBufferDistance">Street Buffer Distance (meters):</label>
+                    <input type="number" id="streetBufferDistance" name="streetBufferDistance" value="5">
+                </div>
+                <div class="input-group">
+                    <label for="streetWeightField">Street Weight Field:</label>
+                    <select id="streetWeightField" name="streetWeightField">
+                        <option value="SHAPE_Length">SHAPE_Length</option>
+                        <option value="StreetWidth_Min">StreetWidth_Min</option>
+                        <option value="StreetWidth_Max">StreetWidth_Max</option>
+                        <option value="BikeLane">BikeLane</option>
+                        <option value="Number_Travel_Lanes">Number_Travel_Lanes</option>
+                        <option value="Number_Park_Lanes">Number_Park_Lanes</option>
+                        <option value="Number_Total_Lanes">Number_Total_Lanes</option>
+                        <option value="POSTED_SPEED">POSTED_SPEED</option>
+                    </select>
+                </div>
+            </div>
+
+
             <label class="custom-checkbox">Planting View
                 <input type="checkbox" id="plantingViewToggle" name="plantingViewToggle">
                 <span class="checkmark"></span>
@@ -313,9 +348,12 @@
         let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
         let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
 
-        // Pass the additional parameters for schools and trees to the planting function
-        PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance);
+        let streetEffect = parseFloat(document.getElementById('streetEffect').value);
+        let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+        let streetWeightField = document.getElementById('streetWeightField').value;
 
+        // Pass the additional parameters for streets to the planting function
+        PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField);
 
     }
 
@@ -362,13 +400,14 @@
 
 
 
-function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance) {
+function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField) {
     let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
 
     // Apply effects from schools and existing trees
     geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
     geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
     geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
+    geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
 
     let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_typ === 'plantable');
 
@@ -987,6 +1026,7 @@ function toggleTreeRadius() {
             feature.properties._schoolmean = 0;
             feature.properties._treemean = 0;
             feature.properties._facilitymean = 0; // Add this line to reset _facilitymean
+            feature.properties._streetmean = 0; // Add this line to reset _streetmean
 
             // reset color
             feature.properties.color = '#008000';
@@ -998,6 +1038,9 @@ function toggleTreeRadius() {
     let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
     let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
     let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+    let streetEffect = parseFloat(document.getElementById('streetEffect').value);
+    let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+    let streetWeightField = document.getElementById('streetWeightField').value;
 
     // Apply school effect
     geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
@@ -1011,17 +1054,16 @@ function toggleTreeRadius() {
     // Apply facility effect
     geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
 
-    // Combine heat index, school/tree effects, and facility effects
+    // Apply street effect
+    geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
+
+    // Combine heat index, school/tree/facility/street effects
     geojsonData.features.forEach(feature => {
         if (feature.properties.canopy_typ === 'plantable') {
             if (document.getElementById('heatIndexToggle').checked) {
-                console.warn("Heat index is on");
-                console.log(feature.properties._facilitymean)
-                feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0);
+                feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0) + (feature.properties._streetmean || 0);
             } else {
-                console.log(feature.properties._facilitymean)
-
-                feature.properties._displayMean = (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0);
+                feature.properties._displayMean = (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0) + (feature.properties._streetmean || 0);
             }
         }
     });
@@ -1234,6 +1276,7 @@ function toggleFacilityData() {
                     }
                 });
                 facilityLayer.addTo(map); // Add the facilityLayer to the map
+                updatePlantableAreaColors(); // Update the colors after the facilities data has been loaded
             });
         }
     } else {
@@ -1352,6 +1395,140 @@ function applyFacilityEffect(geojsonData, facilityEffect, facilityDistance) {
 
 
 
+// Add the following variables and functions in the script section
+
+var streetLayer = L.geoJson(null, {
+    style: function (feature) {
+        return { color: 'gray', weight: 2, opacity: 0.7 };
+    }
+});
+
+var streetBuffers = [];
+
+function toggleStreetData() {
+    var streetDataVisible = document.getElementById('streetToggleView').checked;
+    var showStreetBuffer = document.getElementById('streetBufferToggle').checked;
+    if (streetDataVisible) {
+        if (!map.hasLayer(streetLayer)) {
+            $.getJSON('trafficstreets.geojson', function(data) {
+                streetLayer.addData(data);
+                streetLayer.addTo(map);
+                updateStreetBuffers();
+            });
+        }
+    } else {
+        if (map.hasLayer(streetLayer)) {
+            map.removeLayer(streetLayer);
+            streetBuffers.forEach(function(buffer) {
+                map.removeLayer(buffer);
+            });
+            streetBuffers = [];
+            updatePlantableAreaColors();
+        }
+    }
+}
+
+function updateStreetBuffers() {
+    var bufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+    streetBuffers.forEach(function(buffer) {
+        map.removeLayer(buffer);
+    });
+    streetBuffers = [];
+
+    streetLayer.eachLayer(function(layer) {
+        var buffer = turf.buffer(layer.feature, bufferDistance, { units: 'meters' });
+        var bufferLayer = L.geoJson(buffer, {
+            style: function (feature) {
+                return { color: 'blue', weight: 1, fillOpacity: 0.2 };
+            }
+        });
+        streetBuffers.push(bufferLayer);
+        if (document.getElementById('streetBufferToggle').checked) {
+            bufferLayer.addTo(map);
+        }
+    });
+    updatePlantableAreaColors();
+}
+
+function toggleStreetBuffer() {
+    var showStreetBuffer = document.getElementById('streetBufferToggle').checked;
+    streetBuffers.forEach(function(buffer) {
+        if (showStreetBuffer) {
+            buffer.addTo(map);
+        } else {
+            map.removeLayer(buffer);
+        }
+    });
+}
+
+function toggleStreetSettings() {
+    toggleStreetData();
+    var streetSettings = document.getElementById('streetSettings');
+    var streetToggle = document.getElementById('streetToggleView').checked;
+    streetSettings.style.display = streetToggle ? "block" : "none";
+}
+
+function applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField) {
+    if (!document.getElementById('streetToggleView').checked) {
+        console.log('Street data not visible, returning original geojson data');
+        return geojsonData;
+    }
+
+    var plantableIndex = new RBush();
+    geojsonData.features.forEach(function(feature) {
+        if (feature.properties.canopy_typ === 'plantable') {
+            var bbox = turf.bbox(feature);
+            plantableIndex.insert({
+                minX: bbox[0],
+                minY: bbox[1],
+                maxX: bbox[2],
+                maxY: bbox[3],
+                feature: feature
+            });
+        }
+    });
+
+    streetLayer.eachLayer(function(streetLayer) {
+        var street = streetLayer.feature;
+        var buffer = turf.buffer(street, streetBufferDistance, { units: 'meters' });
+        var boundingBox = turf.bbox(buffer);
+
+        var plantablesInRange = plantableIndex.search({
+            minX: boundingBox[0],
+            minY: boundingBox[1],
+            maxX: boundingBox[2],
+            maxY: boundingBox[3]
+        });
+
+        plantablesInRange.forEach(function(plantable) {
+            var feature = plantable.feature;
+            var intersection = turf.intersect(feature, buffer);
+
+            if (intersection) {
+                var streetWeight = street.properties[streetWeightField];
+
+
+                // Convert string values to integers and replace NaNs or emptiness with 0
+                if (typeof streetWeight === 'string') {
+                    streetWeight = streetWeight.trim();
+                    streetWeight = streetWeight === '' ? 0 : parseInt(streetWeight, 10);
+                }
+                streetWeight = isNaN(streetWeight) ? 0 : streetWeight;
+
+                var effect = streetEffect * streetWeight;
+
+                if (!feature.properties._streetmean) {
+                    feature.properties._streetmean = 0;
+                }
+                feature.properties._streetmean += effect;
+            }
+        });
+    });
+
+    return geojsonData;
+}
+
+
 
     document.getElementById('heatIndexScale').addEventListener('input', updateHeatIndexScale);
 
@@ -1396,6 +1573,14 @@ document.getElementById('facilityHeatingDistance').addEventListener('change', fu
     updatePlantableAreaColors();
 });
 document.getElementById('facilityToggleView').addEventListener('change', updatePlantableAreaColors);
+
+// Add event listeners to the street settings input fields
+document.getElementById('streetEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('streetBufferDistance').addEventListener('change', function() {
+    updateStreetBuffers();
+    updatePlantableAreaColors();
+});
+document.getElementById('streetWeightField').addEventListener('change', updatePlantableAreaColors);
 
     </script>
     <script src="https://cdn.jsdelivr.net/npm/rbush@3.0.1/rbush.min.js"></script>
