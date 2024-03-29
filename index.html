@@ -208,6 +208,26 @@
                 </div>
             </div>
 
+            <!-- Facility Data Toggle and Settings -->
+            <label class="custom-checkbox">View Facility Data
+                <input type="checkbox" id="facilityToggleView" name="facilityToggleView" onchange="toggleFacilitySettings()">
+                <span class="checkmark"></span>
+            </label>
+            <div id="facilitySettings" style="display: none;">
+                <label class="custom-checkbox">Show Facility Radius
+                    <input type="checkbox" id="facilityRadiusToggle" name="facilityRadiusToggle" onchange="toggleFacilityRadius()" checked>
+                    <span class="checkmark"></span>
+                </label>
+                <div class="input-group">
+                    <label for="facilityHeatingEffect">Facility Heating Effect:</label>
+                    <input type="number" id="facilityHeatingEffect" name="facilityHeatingEffect" step="0.1" value="0.1">
+                </div>
+                <div class="input-group">
+                    <label for="facilityHeatingDistance">Facility Heating Distance (meters):</label>
+                    <input type="number" id="facilityHeatingDistance" name="facilityHeatingDistance" value="500">
+                </div>
+            </div>
+
             <label class="custom-checkbox">Planting View
                 <input type="checkbox" id="plantingViewToggle" name="plantingViewToggle">
                 <span class="checkmark"></span>
@@ -289,8 +309,12 @@
         let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
         let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
 
+        // Example values for facilityEffect and facilityDistance, replace with actual input retrieval
+        let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
+        let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+
         // Pass the additional parameters for schools and trees to the planting function
-        PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance);
+        PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance);
 
 
     }
@@ -338,12 +362,13 @@
 
 
 
-function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance) {
+function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance) {
     let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
 
     // Apply effects from schools and existing trees
     geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
     geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
+    geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
 
     let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_typ === 'plantable');
 
@@ -355,9 +380,9 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
         plantableAreas.forEach(area => {
             // if heat index is on, add the heat index to the mean
             if (showHeatIndex) {
-                area.properties._combinedMean = (area.properties._mean || 0) + (area.properties._schoolmean || 0) + (area.properties._treemean || 0);
+                area.properties._combinedMean = (area.properties._mean || 0) + (area.properties._schoolmean || 0) + (area.properties._treemean || 0) + (area.properties._facilitymean || 0);
             } else {
-                area.properties._combinedMean = (area.properties._schoolmean || 0) + (area.properties._treemean || 0);
+                area.properties._combinedMean = (area.properties._schoolmean || 0) + (area.properties._treemean || 0) + (area.properties._facilitymean || 0);
             }
         });
 
@@ -729,6 +754,7 @@ function loadSchoolDataAndDrawLines() {
 // Call this function after your map and datasets have been initialized
 // drawLinesToClosestSchoolFromLayer();
 
+var facilityLayer = L.layerGroup(); // Initialize with an empty layer group
 
     var treeLayer = L.layerGroup(); // Initialize with an empty layer group
     var schoolLayer = L.layerGroup(); // Initialize with an empty layer group
@@ -960,6 +986,8 @@ function toggleTreeRadius() {
             feature.properties._displayMean = 0;
             feature.properties._schoolmean = 0;
             feature.properties._treemean = 0;
+            feature.properties._facilitymean = 0; // Add this line to reset _facilitymean
+
             // reset color
             feature.properties.color = '#008000';
             // feature.properties._mean = 0;
@@ -977,14 +1005,23 @@ function toggleTreeRadius() {
     // Apply tree effect
     geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
 
-    // Combine heat index and school/tree effects
+    let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
+    let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+
+    // Apply facility effect
+    geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
+
+    // Combine heat index, school/tree effects, and facility effects
     geojsonData.features.forEach(feature => {
         if (feature.properties.canopy_typ === 'plantable') {
             if (document.getElementById('heatIndexToggle').checked) {
                 console.warn("Heat index is on");
-                feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0);
+                console.log(feature.properties._facilitymean)
+                feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0);
             } else {
-                feature.properties._displayMean = (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0);
+                console.log(feature.properties._facilitymean)
+
+                feature.properties._displayMean = (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0);
             }
         }
     });
@@ -1154,6 +1191,168 @@ function applyTreeEffect(geojsonData, treeEffect, treeDistance) {
     updatePlantableAreaColors();
 }
 
+
+
+
+
+
+
+var facilityCircles = [];
+function toggleFacilityData() {
+    var facilityDataVisible = document.getElementById('facilityToggleView').checked;
+    var showFacilityRadius = document.getElementById('facilityRadiusToggle').checked;
+    if (facilityDataVisible) {
+        if (!map.hasLayer(facilityLayer)) {
+            $.getJSON('facilitiesBK17.geojson', function(data) {
+                facilityLayer.clearLayers(); // Clear any existing layers
+                L.geoJson(data, {
+                    pointToLayer: function(feature, latlng) {
+                        var originalCircle = L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: "#0000ff",
+                            color: "#000",
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+
+                        var heatingDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+                        var effectCircle = L.circle(latlng, {
+                            color: 'blue',
+                            fillOpacity: 0,
+                            radius: heatingDistance
+                        });
+                        facilityCircles.push(effectCircle);
+                        if (showFacilityRadius) {
+                            effectCircle.addTo(map);
+                        }
+                        originalCircle._heatingCircle = effectCircle;
+
+                        var group = L.layerGroup([originalCircle]);
+                        facilityLayer.addLayer(group); // Add the group to the facilityLayer
+                        return originalCircle; // Return the original circle instead of the group
+                    }
+                });
+                facilityLayer.addTo(map); // Add the facilityLayer to the map
+            });
+        }
+    } else {
+        if (facilityLayer) {
+            // remove facility circles
+            facilityCircles.forEach(function(circle) {
+                map.removeLayer(circle);
+            });
+            map.removeLayer(facilityLayer);
+            updatePlantableAreaColors();
+        }
+    }
+}
+function updateFacilityHeatingDistance() {
+    // Update the radius of existing facility circles
+    facilityCircles.forEach(function(circle) {
+        var heatingDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+        circle.setRadius(heatingDistance);
+    });
+    updatePlantableAreaColors();
+}
+
+function toggleFacilityRadius() {
+    var showFacilityRadius = document.getElementById('facilityRadiusToggle').checked;
+    facilityCircles.forEach(function(circle) {
+        if (showFacilityRadius) {
+            circle.addTo(map);
+        } else {
+            map.removeLayer(circle);
+        }
+    });
+}
+
+// Function to toggle facility settings visibility
+function toggleFacilitySettings() {
+    toggleFacilityData();
+    var facilitySettings = document.getElementById('facilitySettings');
+    var facilityToggle = document.getElementById('facilityToggleView').checked;
+    facilitySettings.style.display = facilityToggle ? "block" : "none";
+}
+
+function applyFacilityEffect(geojsonData, facilityEffect, facilityDistance) {
+    // If view facility data isn't checked, return the original geojson data
+    if (!document.getElementById('facilityToggleView').checked) {
+        console.log('Facility data not visible, returning original geojson data');
+        return geojsonData;
+    }
+
+    console.log("Applying facility effect");
+
+    var effectType = document.querySelector('input[name="effectType"]:checked').value;
+    var sigma = parseFloat(document.getElementById('gaussianSigma').value);
+    var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
+
+    // Create a spatial index for plantable areas
+    var plantableIndex = new RBush();
+    geojsonData.features.forEach(function(feature) {
+        if (feature.properties.canopy_typ === 'plantable') {
+            var bbox = turf.bbox(feature);
+            plantableIndex.insert({
+                minX: bbox[0],
+                minY: bbox[1],
+                maxX: bbox[2],
+                maxY: bbox[3],
+                feature: feature
+            });
+        }
+    });
+
+    console.log("Facility layer", facilityLayer);
+
+    facilityLayer.eachLayer(function(facilityFeatureLayer) {
+        console.log("Facility feature layer", facilityFeatureLayer);
+        facilityFeatureLayer.eachLayer(function(layer) {
+            console.log("Facility layer", layer);
+            if (layer instanceof L.CircleMarker) {
+                const facilityPoint = layer.getLatLng();
+                const facilityPointGeoJSON = turf.point([facilityPoint.lng, facilityPoint.lat]);
+                const boundingBox = turf.bbox(turf.circle(facilityPointGeoJSON, facilityDistance, { units: 'meters' }));
+
+                var plantablesInRange = plantableIndex.search({
+                    minX: boundingBox[0],
+                    minY: boundingBox[1],
+                    maxX: boundingBox[2],
+                    maxY: boundingBox[3]
+                });
+
+                plantablesInRange.forEach(function(plantable) {
+                    var feature = plantable.feature;
+                    var areaCentroid = turf.centroid(feature).geometry.coordinates;
+
+                    var distance = turf.distance(facilityPointGeoJSON, turf.point(areaCentroid), { units: 'meters' });
+
+                    if (effectType === 'binary') {
+                        if (distance <= facilityDistance) {
+                            if (!feature.properties._facilitymean) {
+                                feature.properties._facilitymean = 0;
+                            }
+                            feature.properties._facilitymean += facilityEffect;
+                        }
+                    } else if (effectType === 'gaussian') {
+                        var weight = gaussianWeight(distance, facilityDistance, sigma, amplitude);
+                        if (!feature.properties._facilitymean) {
+                            feature.properties._facilitymean = 0;
+                        }
+                        feature.properties._facilitymean += facilityEffect * weight;
+                    }
+                });
+            }
+        });
+    });
+
+    return geojsonData;
+}
+
+
+
+
+
     document.getElementById('heatIndexScale').addEventListener('input', updateHeatIndexScale);
 
     document.querySelectorAll('input[name="effectType"]').forEach(function(radio) {
@@ -1189,6 +1388,15 @@ document.getElementById('plantingViewToggle').addEventListener('change', functio
         updatePlantableAreaColors();
     }
 });
+
+
+document.getElementById('facilityHeatingEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('facilityHeatingDistance').addEventListener('change', function() {
+    updateFacilityHeatingDistance();
+    updatePlantableAreaColors();
+});
+document.getElementById('facilityToggleView').addEventListener('change', updatePlantableAreaColors);
+
     </script>
     <script src="https://cdn.jsdelivr.net/npm/rbush@3.0.1/rbush.min.js"></script>
 
