@@ -115,8 +115,23 @@
     top: 0px;
 }
 
+.district-label-tooltip {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    font-size: 14px;
+    color: black;
+    text-align: center;
+    padding: 0;
+    pointer-events: none;
+    z-index: 1000000;
+}
 
+.district-label {
+    font-weight: normal;
+    z-index: 1000000;
 
+}
 
     </style>
 </head>
@@ -125,6 +140,13 @@
     <div id="sidebar">
         <h2><i class="fas fa-tree"></i> Tree Planting Parameters</h2>
         <form id="parametersForm">
+            <div class="input-group">
+                <label for="boroSelect">Select Borough:</label>
+                <select id="boroSelect" data-current="">
+                    <!-- Options will be dynamically added -->
+                </select>
+            </div>
+
             <div class="input-group">
                 <label for="totalTrees">Total Trees:</label>
                 <input type="number" id="totalTrees" name="totalTrees" value="100">
@@ -138,6 +160,7 @@
                 <input type="number" id="coolingDistance" name="coolingDistance" value="500">
             </div>
             <button type="button" onclick="updateTreePlanting()">Update Tree Planting</button>
+            <button type="button" onclick="clearPlantedTrees()">Clear Planted Trees</button>
             <h4 id="results">...</h4>
 
 
@@ -276,6 +299,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet-geometryutil@0.10.1/src/leaflet.geometryutil.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+<script src="https://unpkg.com/leaflet-shapefile@2.0.0/leaflet-shapefile.js"></script>
+<script src="shp.js"></script>
+<script src="leaflet.shpfile.js"></script>
+
 <script>
     var map = L.map('map',
     {
@@ -295,23 +323,40 @@
     // Global variable to keep track of the current GeoJSON layer
     var currentGeoJsonLayer = null;
 
-    function displayGeoJson(geojsonData) {
-        if (currentGeoJsonLayer) {
-            map.removeLayer(currentGeoJsonLayer);
-        }
+    // function displayGeoJson(geojsonData) {
+    //     if (currentGeoJsonLayer) {
+    //         map.removeLayer(currentGeoJsonLayer);
+    //     }
 
-        currentGeoJsonLayer = L.geoJson(geojsonData, {
-            style: function(feature) {
-                // try by color
-                return { color: feature.properties.color, weight: 2, fillOpacity: 0.5 };
-                // return { color: getColor(feature.properties._mean, heatIndexScale), weight: 2, fillOpacity: 0.5 };
+    //     currentGeoJsonLayer = L.geoJson(geojsonData, {
+    //         style: function(feature) {
+    //             // try by color
+    //             return { color: feature.properties.color, weight: 2, fillOpacity: 0.5 };
+    //             // return { color: getColor(feature.properties._mean, heatIndexScale), weight: 2, fillOpacity: 0.5 };
             
-            },
-            pane: 'plantableAreasPane', // Set the custom pane for the plantable areas layer
-        renderer: L.canvas() // Set Canvas as the renderer for this layer
-        }).addTo(map);
+    //         },
+    //         pane: 'plantableAreasPane', // Set the custom pane for the plantable areas layer
+    //     renderer: L.canvas() // Set Canvas as the renderer for this layer
+    //     }).addTo(map);
+    // }
+
+    function displayGeoJson(geojsonData) {
+    if (currentGeoJsonLayer) {
+        map.removeLayer(currentGeoJsonLayer);
     }
 
+    currentGeoJsonLayer = L.geoJson(geojsonData, {
+        style: function(feature) {
+            return {
+                color: feature.properties.color,
+                weight: 2,
+                fillOpacity: 0.5
+            };
+        },
+        pane: 'plantableAreasPane',
+        renderer: L.canvas()
+    }).addTo(map);
+}
 
 
 
@@ -409,7 +454,7 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
     geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
     geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
 
-    let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_typ === 'plantable');
+    let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_type === 'plantable');
 
 
     let treesPlanted = 0;
@@ -617,7 +662,7 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
 
     function calculateMinMaxMean(geojsonData) {
     var means = geojsonData.features.map(feature => {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             return feature.properties._displayMean;
         }
     }).filter(mean => mean !== undefined);
@@ -635,33 +680,31 @@ function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDista
     console.log("Calculated min and max mean values:", minMean, maxMean);
 }
 
-    $.getJSON('inputStreet.geojson', function(data) {
-        originalGeoJsonData = data;
-        calculateMinMaxMean(originalGeoJsonData); // Calculate min and max mean values
-        // displayGeoJson(originalGeoJsonData, showHeatIndex, heatIndexScale);
-        // set color to default '#008000' on load
-        // originalGeoJsonData.features.forEach(feature => {
-        //     feature.properties.color = '#008000';
-        // });
-        displayGeoJson(originalGeoJsonData);
+    // $.getJSON('inputStreet.geojson', function(data) {
+    //     originalGeoJsonData = data;
+    //     calculateMinMaxMean(originalGeoJsonData); // Calculate min and max mean values
+    //     // displayGeoJson(originalGeoJsonData, showHeatIndex, heatIndexScale);
+    //     // set color to default '#008000' on load
+    //     // originalGeoJsonData.features.forEach(feature => {
+    //     //     feature.properties.color = '#008000';
+    //     // });
+    //     displayGeoJson(originalGeoJsonData);
 
 
-        $.getJSON('schoolsBK17.geojson', function(data) {
-        L.geoJson(data).eachLayer(function(layer) {
-            schoolLayer.addLayer(layer); // This should add each school to the schoolLayer
-        });
-        console.log(schoolLayer.getLayers().length); // This should now log a non-zero number
-        // drawLinesToSchoolsWithinRadius();
-    });
-
-
-    });
+    //     $.getJSON('schoolsBK17.geojson', function(data) {
+    //     L.geoJson(data).eachLayer(function(layer) {
+    //         schoolLayer.addLayer(layer); // This should add each school to the schoolLayer
+    //     });
+    //     console.log(schoolLayer.getLayers().length); // This should now log a non-zero number
+    //     // drawLinesToSchoolsWithinRadius();
+    // });
+    // });
 
 
 
 function drawLinesToClosestSchoolFromLayer() {
     originalGeoJsonData.features.forEach(plantableArea => {
-        if (plantableArea.properties.canopy_typ === 'plantable') {
+        if (plantableArea.properties.canopy_type === 'plantable') {
             const plantableCentroid = calculateCentroid(plantableArea.geometry);
 
             let closestSchoolPoint = null;
@@ -727,7 +770,7 @@ function drawLinesToSchoolsWithinRadius() {
     const radius = 1000; // Define your radius in meters
 
     originalGeoJsonData.features.forEach(plantableArea => {
-        if (plantableArea.properties.canopy_typ === 'plantable') {
+        if (plantableArea.properties.canopy_type === 'plantable') {
             const plantableCentroid = calculateCentroid(plantableArea.geometry);
 
             // No longer keeping track of the closest school or minimum distance
@@ -843,13 +886,63 @@ var facilityLayer = L.layerGroup(); // Initialize with an empty layer group
     }
 }
 
+// function toggleSchoolData() {
+//     var schoolDataVisible = document.getElementById('schoolToggleView').checked;
+//     var showSchoolRadius = document.getElementById('schoolRadiusToggle').checked;
+//     if (schoolDataVisible) {
+//         if (!map.hasLayer(schoolLayer)) {
+//             $.getJSON('schoolsBK17.geojson', function(data) {
+//                 schoolLayer = L.geoJson(data, {
+//                     pointToLayer: function(feature, latlng) {
+//                         var originalCircle = L.circleMarker(latlng, {
+//                             radius: 8,
+//                             fillColor: "#ff7800",
+//                             color: "#000",
+//                             weight: 3,
+//                             opacity: 1,
+//                             fillOpacity: 0.8
+//                         });
+
+//                         var heatingDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+//                         var effectCircle = L.circle(latlng, {
+//                             color: 'red',
+//                             fillOpacity: 0,
+//                             radius: heatingDistance
+//                         });
+//                         schoolCircles.push(effectCircle);
+//                         if (showSchoolRadius) {
+//                             effectCircle.addTo(map);
+//                         }
+//                         originalCircle._heatingCircle = effectCircle;
+
+//                         var group = L.layerGroup([originalCircle]).addTo(map);
+//                         return group;
+//                     }
+//                 }).addTo(map);
+//             });
+//         }
+//     } else {
+//         if (schoolLayer) {
+//             // remove school circles
+//             schoolCircles.forEach(function(circle) {
+//                 map.removeLayer(circle);
+//             });
+//             map.removeLayer(schoolLayer);
+//             updatePlantableAreaColors();
+//         }
+//     }
+// }
+
 function toggleSchoolData() {
     var schoolDataVisible = document.getElementById('schoolToggleView').checked;
     var showSchoolRadius = document.getElementById('schoolRadiusToggle').checked;
+    var selectedBorough = document.getElementById('boroSelect').value;
+
     if (schoolDataVisible) {
         if (!map.hasLayer(schoolLayer)) {
-            $.getJSON('schoolsBK17.geojson', function(data) {
-                schoolLayer = L.geoJson(data, {
+            $.getJSON('borosSchools/boro_cd_' + selectedBorough + '.geojson', function(data) {
+                schoolLayer.clearLayers();
+                L.geoJson(data, {
                     pointToLayer: function(feature, latlng) {
                         var originalCircle = L.circleMarker(latlng, {
                             radius: 8,
@@ -875,7 +968,9 @@ function toggleSchoolData() {
                         var group = L.layerGroup([originalCircle]).addTo(map);
                         return group;
                     }
-                }).addTo(map);
+                }).addTo(schoolLayer);
+                schoolLayer.addTo(map);
+                updatePlantableAreaColors();
             });
         }
     } else {
@@ -969,14 +1064,40 @@ function toggleTreeRadius() {
     var effectType = document.querySelector('input[name="effectType"]:checked').value;
     var sigma = parseFloat(document.getElementById('gaussianSigma').value);
     var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
-
+    console.log("Applying school effect with parameters:", schoolEffect, schoolDistance, effectType, sigma, amplitude);
     geojsonData.features.forEach(plantableArea => {
-        if (plantableArea.properties.canopy_typ === 'plantable') {
+        if (plantableArea.properties.canopy_type === 'plantable') {
+            // console.log(plantableArea)
             const plantableCentroid = calculateCentroid(plantableArea.geometry);
 
             schoolLayer.eachLayer(function(layer) {
+                // console.log(layer);
                 let schoolPoint;
-                if (layer.feature && layer.feature.geometry) {
+                if (layer instanceof L.LayerGroup) {
+                    // console.log("LayerGroup");
+                // If the layer is a LayerGroup, iterate over its child layers
+                layer.eachLayer(function(childLayer) {
+
+                    // console.log(childLayer);
+                    if (childLayer.feature && childLayer.feature.geometry) {
+                    if (childLayer.feature.geometry.type === 'MultiPoint') {
+                        const firstPointCoords = childLayer.feature.geometry.coordinates[0];
+                        schoolPoint = [firstPointCoords[1], firstPointCoords[0]];
+                    } else {
+                        // console.log(childLayer.feature.geometry.coordinates);
+                        schoolPoint = [childLayer.feature.geometry.coordinates[1], childLayer.feature.geometry.coordinates[0]];
+                    } 
+                    } else if (childLayer.getLatLng) {
+                        let latLng = childLayer.getLatLng();
+                        schoolPoint = [latLng.lat, latLng.lng];
+                    } else {
+                        console.log('Unknown childLayer type or geometry not defined');
+                        return;
+                    }
+
+                });
+                }
+                else if (layer.feature && layer.feature.geometry) {
                     if (layer.feature.geometry.type === 'MultiPoint') {
                         const firstPointCoords = layer.feature.geometry.coordinates[0];
                         schoolPoint = [firstPointCoords[1], firstPointCoords[0]];
@@ -992,6 +1113,7 @@ function toggleTreeRadius() {
                 }
 
                 const distance = getDistance(plantableCentroid[0], plantableCentroid[1], schoolPoint[0], schoolPoint[1]);
+                console.log(distance);
                 if (effectType === 'binary') {
                     if (distance <= schoolDistance) {
                         console.log("Applying binary school effect");
@@ -999,7 +1121,7 @@ function toggleTreeRadius() {
                         if(!plantableArea.properties._schoolmean) {
                             plantableArea.properties._schoolmean = 0;
                         }                        
-                        plantableArea.properties._schoolmean += schoolEffect;
+                        plantableArea.properties._schoolmean += schoolEffect + Math.random() * 5;
                         console.log("School mean:", plantableArea.properties._schoolmean);
                     }
                 } else if (effectType === 'gaussian') {
@@ -1020,7 +1142,7 @@ function toggleTreeRadius() {
 
     // Reset _mean values to 0
     geojsonData.features.forEach(feature => {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             feature.properties._heatIndex = 0;
             feature.properties._displayMean = 0;
             feature.properties._schoolmean = 0;
@@ -1059,7 +1181,7 @@ function toggleTreeRadius() {
 
     // Combine heat index, school/tree/facility/street effects
     geojsonData.features.forEach(feature => {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             if (document.getElementById('heatIndexToggle').checked) {
                 feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0) + (feature.properties._streetmean || 0);
             } else {
@@ -1070,7 +1192,20 @@ function toggleTreeRadius() {
 
     calculateMinMaxMean(geojsonData);
     updateMeanColors(geojsonData);
-    displayGeoJson(geojsonData);
+    // displayGeoJson(geojsonData);
+        // Update the color property of each plantable area feature
+        geojsonData.features.forEach(feature => {
+        if (feature.properties.canopy_type === 'plantable') {
+            const mean = feature.properties._displayMean;
+            feature.properties.color = getMeanColor(mean);
+        }
+    });
+
+    // Store the updated geojsonData in the originalGeoJsonData variable
+    originalGeoJsonData = geojsonData;
+
+    // Redraw the map with the updated colors
+    displayGeoJson(originalGeoJsonData);
 }
 function getHeatIndex(mean, scale) {
     const range = maxMean - minMean;
@@ -1083,6 +1218,10 @@ function getHeatIndex(mean, scale) {
     function getMeanColor(mean) {
     // Use the global minMean and maxMean values
     const normalizedMean = (mean - minMean) / (maxMean - minMean);
+    console.log("Min mean:", minMean)
+    console.log("Max mean:", maxMean)
+    console.log("Mean:", mean);
+    console.log("Normalized mean:", normalizedMean);
 
     // Interpolate between green (0), orange (0.5), and red (1)
     if (normalizedMean < 0.5) {
@@ -1099,7 +1238,7 @@ function getHeatIndex(mean, scale) {
 
 function updateMeanColors(geojsonData) {
     geojsonData.features.forEach(feature => {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             const mean = feature.properties._displayMean;
             console.log("Getting mean color for:", mean);
             feature.properties.color = getMeanColor(mean);
@@ -1121,7 +1260,7 @@ function applyTreeEffect(geojsonData, treeEffect, treeDistance) {
     // Create a spatial index for plantable areas
     var plantableIndex = new RBush();
     geojsonData.features.forEach(function(feature) {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             var bbox = turf.bbox(feature);
             plantableIndex.insert({
                 minX: bbox[0],
@@ -1334,7 +1473,7 @@ function applyFacilityEffect(geojsonData, facilityEffect, facilityDistance) {
     // Create a spatial index for plantable areas
     var plantableIndex = new RBush();
     geojsonData.features.forEach(function(feature) {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             var bbox = turf.bbox(feature);
             plantableIndex.insert({
                 minX: bbox[0],
@@ -1476,7 +1615,7 @@ function applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, stre
 
     var plantableIndex = new RBush();
     geojsonData.features.forEach(function(feature) {
-        if (feature.properties.canopy_typ === 'plantable') {
+        if (feature.properties.canopy_type === 'plantable') {
             var bbox = turf.bbox(feature);
             plantableIndex.insert({
                 minX: bbox[0],
@@ -1528,6 +1667,317 @@ function applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, stre
     return geojsonData;
 }
 
+
+var boroughPattern = /boro_cd_(\d+)\.geojson/;
+
+function loadBoroughOptions() {
+    console.log ("Loading borough options");
+    $.ajax({
+        url: "boros/", // Current directory
+        success: function(data) {
+            $(data).find("a:contains('.geojson')").each(function() {
+                var filename = $(this).attr("href");
+                var match = filename.match(boroughPattern);
+                if (match) {
+                    var boroughCode = match[1];
+                    var option = $("<option>").val(boroughCode).text("Borough " + boroughCode);
+                    $("#boroSelect").append(option);
+                }
+            });
+            // Trigger borough switching after loading options
+            switchBorough();
+        }
+    });
+}
+function switchBorough() {
+    var selectedBorough = document.getElementById('boroSelect').value;
+    var currentBorough = document.getElementById('boroSelect').getAttribute('data-current');
+
+    // Check if the selected borough is the same as the current borough
+    if (selectedBorough === currentBorough) {
+        return;
+    }
+
+    // Update the current borough attribute
+    document.getElementById('boroSelect').setAttribute('data-current', selectedBorough);
+
+    // Load the selected borough's plantable areas GeoJSON
+    $.getJSON('boros/boro_cd_' + selectedBorough + '.geojson', function(data) {
+        console.log('Switching to borough ' + selectedBorough);
+        originalGeoJsonData = data;
+        calculateMinMaxMean(originalGeoJsonData);
+        displayGeoJson(originalGeoJsonData);
+        // Zoom to the selected borough
+        zoomToBorough(data);
+    });
+
+    // Load the selected borough's schools GeoJSON
+    $.getJSON('borosSchools/boro_cd_' + selectedBorough + '.geojson', function(data) {
+        schoolLayer.clearLayers();
+        L.geoJson(data).eachLayer(function(layer) {
+            schoolLayer.addLayer(layer);
+        });
+    });
+
+    // Load the selected borough's trees GeoJSON
+    $.getJSON('boro_cd_' + selectedBorough + 'trees.geojson', function(data) {
+        treeLayer.clearLayers();
+        L.geoJson(data).eachLayer(function(layer) {
+            treeLayer.addLayer(layer);
+        });
+    });
+
+    // Load the selected borough's facilities GeoJSON
+    $.getJSON('boro_cd_' + selectedBorough + 'facilities.geojson', function(data) {
+        facilityLayer.clearLayers();
+        L.geoJson(data).eachLayer(function(layer) {
+            facilityLayer.addLayer(layer);
+        });
+    });
+
+    // Load the selected borough's streets GeoJSON
+    $.getJSON('boro_cd_' + selectedBorough + 'streets.geojson', function(data) {
+        streetLayer.clearLayers();
+        streetLayer.addData(data);
+        updateStreetBuffers();
+    });
+}
+
+function zoomToDistrict(districtNumber) {
+    // Get the current selected district from the dropdown
+    var currentDistrict = document.getElementById('boroSelect').getAttribute('data-current');
+
+    // Check if the selected district is the same as the current district
+    if (districtNumber.toString() === currentDistrict.toString()) {
+        return;
+    }
+
+    // Find the selected district layer
+    var selectedDistrictLayer = communityDistrictsLayer.getLayers().find(function(layer) {
+        return layer.feature.properties.boro_cd === districtNumber;
+    });
+
+    if (selectedDistrictLayer) {
+        // Update the current borough attribute
+        document.getElementById('boroSelect').setAttribute('data-current', districtNumber);
+
+        // Zoom to the selected district
+        map.fitBounds(selectedDistrictLayer.getBounds());
+
+        // Load the corresponding plantable areas GeoJSON file
+        var plantableAreasFile = 'boros/boro_cd_' + districtNumber + '.geojson';
+        $.getJSON(plantableAreasFile, function(data) {
+            // Clear existing plantable areas layer
+            if (currentGeoJsonLayer) {
+                map.removeLayer(currentGeoJsonLayer);
+            }
+
+            // Display the plantable areas for the selected district
+            currentGeoJsonLayer = L.geoJson(data, {
+                style: function(feature) {
+                    return {
+                        color: feature.properties.color,
+                        weight: 2,
+                        fillOpacity: 0.5
+                    };
+                },
+                pane: 'plantableAreasPane',
+                renderer: L.canvas()
+            }).addTo(map);
+        });
+    }
+}
+
+// Add event listener to the borough dropdown
+document.getElementById('boroSelect').addEventListener('change', switchBorough);
+
+
+function zoomToBorough(geojsonData) {
+    var bounds = L.geoJson(geojsonData).getBounds();
+    map.fitBounds(bounds);
+}
+
+// Load borough options and trigger initial borough switching
+loadBoroughOptions();
+
+
+// Add event listener to the borough dropdown
+document.getElementById('boroSelect').addEventListener('change', switchBorough);
+
+// Create a custom pane for the community districts layer
+map.createPane('communityDistrictsPane');
+map.getPane('communityDistrictsPane').style.zIndex = 1000;
+var shpfile = new L.Shapefile('Community Districts (1).zip', {
+    onEachFeature: function(feature, layer) {
+        var districtNumber = feature.properties.boro_cd;
+        var labelContent = '<div class="district-label">' + districtNumber + '</div>';
+        var centroid = layer.getBounds().getCenter();
+
+        var labelMarker = L.marker(centroid, {
+            icon: L.divIcon({
+                className: 'district-label-marker',
+                html: '<div class="district-label">' + feature.properties.boro_cd + '</div>'
+            }),
+            interactive: false
+        });
+
+        labelMarker.addTo(map);
+
+        layer.on('mouseover', function() {
+            var currentDistrict = document.getElementById('boroSelect').getAttribute('data-current');
+
+            // Skip hover effect if this district is already selected
+            if (districtNumber.toString() === currentDistrict.toString()) {
+                return;
+            }
+
+            this.setStyle({
+                fillColor: 'yellow',
+                fillOpacity: 0.7,
+                zIndex: 10
+            });
+        });
+
+        layer.on('mouseout', function() {
+            var currentDistrict = document.getElementById('boroSelect').getAttribute('data-current');
+
+            this.setStyle({
+                fillColor: 'transparent',
+                fillOpacity: 0
+            });
+        });
+
+        layer.on('click', function() {
+            var currentDistrict = document.getElementById('boroSelect').getAttribute('data-current');
+
+            // Skip zoom effect if this district is already selected
+            if (districtNumber.toString() === currentDistrict.toString()) {
+                return;
+            }
+
+            // Change the selected district in the dropdown
+            document.getElementById('boroSelect').value = districtNumber.toString();
+
+
+            this.setStyle({
+                fillColor: 'transparent',
+                fillOpacity: 0
+            });            
+
+            // zoomToDistrict(districtNumber);
+            switchBorough();
+        });
+    },
+    style: function(feature) {
+        return {
+            color: 'black',
+            weight: 1,
+            fillColor: 'transparent',
+            fillOpacity: 0
+        };
+    },
+    pane: 'communityDistrictsPane' // Assign the layer to the custom pane
+});
+
+shpfile.addTo(map);
+
+shpfile.once('data:loaded', function() {
+    communityDistrictsLayer = shpfile;
+    map.fitBounds(shpfile.getBounds());
+});
+
+
+// // Load the community districts shapefile
+// var communityDistrictsLayer;
+
+// var shpfile = new L.Shapefile('Community Districts (1).zip', {
+//     onEachFeature: function(feature, layer) {
+//         // Add the district number as a label
+//         var districtNumber = feature.properties.boro_cd;
+//         var labelContent = '<div class="district-label">' + districtNumber + '</div>';
+//         layer.bindTooltip(labelContent, {
+//             permanent: true,
+//             direction: 'center',
+//             className: 'district-label'
+//         });
+
+//         // Add a click event handler to trigger the zoom functionality
+//         layer.on('click', function() {
+//             zoomToDistrict(districtNumber);
+//         });
+//     },
+//     style: function(feature) {
+//         return {
+//             color: 'black',
+//             weight: 1,
+//             fillOpacity: 0
+//         };
+//     }
+// });
+
+// shpfile.addTo(map);
+
+// shpfile.once('data:loaded', function() {
+//     communityDistrictsLayer = shpfile;
+//     map.fitBounds(shpfile.getBounds());
+// });
+
+
+
+// // Function to zoom to a specific district and load the corresponding plantable areas
+// function zoomToDistrict(districtNumber) {
+//     // Zoom to the selected district
+//     var district = communityDistrictsLayer.getLayers().find(function(layer) {
+//         return layer.feature.properties.boro_cd === districtNumber;
+//     });
+//     map.fitBounds(district.getBounds());
+
+//     // Load the corresponding plantable areas GeoJSON file
+//     var plantableAreasFile = 'boro_cd_' + districtNumber + '.geojson';
+//     $.getJSON(plantableAreasFile, function(data) {
+//         // Clear existing plantable areas layer
+//         if (currentGeoJsonLayer) {
+//             map.removeLayer(currentGeoJsonLayer);
+//         }
+
+//         // Display the plantable areas for the selected district
+//         currentGeoJsonLayer = L.geoJson(data, {
+//             style: function(feature) {
+//                 return {
+//                     color: feature.properties.color,
+//                     weight: 2,
+//                     fillOpacity: 0.5
+//                 };
+//             },
+//             pane: 'plantableAreasPane',
+//             renderer: L.canvas()
+//         }).addTo(map);
+//     });
+// }
+
+// Show/hide the community districts layer based on the zoom level
+// map.on('zoomend', function() {
+//     var zoomLevel = map.getZoom();
+//     if (zoomLevel >= 12) { // Adjust the zoom level threshold as needed
+//         if (!map.hasLayer(communityDistrictsLayer)) {
+//             map.addLayer(communityDistrictsLayer);
+//         }
+//     } else {
+//         if (map.hasLayer(communityDistrictsLayer)) {
+//             map.removeLayer(communityDistrictsLayer);
+//         }
+//     }
+// });
+
+
+
+function clearPlantedTrees() {
+    // Remove all tree markers from the map
+    clearMapLayers();
+
+    // Update results text
+    document.getElementById('results').innerText = "All planted trees have been cleared.";
+}
 
 
     document.getElementById('heatIndexScale').addEventListener('input', updateHeatIndexScale);
