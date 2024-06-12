@@ -1516,23 +1516,62 @@ document.getElementById('treeToggleView').addEventListener('change', updatePlant
 
         var boroughPattern = /boro_cd_(\d+)\.geojson/;
 
-        function loadBoroughOptions() {
-            $.ajax({
-                url: "boros/",
-                success: function(data) {
-                    $(data).find("a:contains('.geojson')").each(function() {
-                        var filename = $(this).attr("href");
-                        var match = filename.match(boroughPattern);
-                        if (match) {
-                            var boroughCode = match[1];
-                            var option = $("<option>").val(boroughCode).text("Borough " + boroughCode);
-                            $("#boroSelect").append(option);
-                        }
-                    });
-                    switchBorough();
-                }
-            });
+
+        const boroughFiles = [
+    'boro_cd_104.geojson',
+    'boro_cd_105.geojson',
+    'boro_cd_106.geojson',
+    'boro_cd_107.geojson',
+    'boro_cd_109.geojson',
+    'boro_cd_110.geojson',
+    'boro_cd_111.geojson',
+    'boro_cd_112.geojson',
+    'boro_cd_164.geojson',
+    'boro_cd_201.geojson',
+    'boro_cd_202.geojson',
+    'boro_cd_203.geojson',
+    'boro_cd_204.geojson',
+    'boro_cd_205.geojson',
+    'boro_cd_206.geojson',
+    'boro_cd_207.geojson',
+    'boro_cd_226.geojson',
+    'boro_cd_228.geojson',
+    'boro_cd_301.geojson',
+    'boro_cd_302.geojson',
+    'boro_cd_303.geojson',
+    'boro_cd_304.geojson',
+    'boro_cd_306.geojson',
+    'boro_cd_308.geojson',
+    'boro_cd_310.geojson',
+    'boro_cd_314.geojson',
+    'boro_cd_402.geojson',
+    'boro_cd_403.geojson',
+    'boro_cd_404.geojson',
+    'boro_cd_409.geojson',
+    'boro_cd_480.geojson',
+    'boro_cd_481.geojson',
+    'boro_cd_482.geojson',
+    'boro_cd_483.geojson',
+    'boro_cd_484.geojson',
+    'boro_cd_595.geojson',
+    'boro_cd_NULL.geojson'
+];
+
+function loadBoroughOptions() {
+    boroughFiles.forEach(filename => {
+        const match = filename.match(boroughPattern);
+        if (match) {
+            const boroughCode = match[1];
+            const option = $("<option>").val(boroughCode).text("Borough " + boroughCode);
+            $("#boroSelect").append(option);
         }
+    });
+
+    // Trigger the initial borough switch after loading options
+    switchBorough();
+}
+
+
         async function loadGeoJson(url) {
     return new Promise((resolve, reject) => {
         $.getJSON(url, function(data) {
