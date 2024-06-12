@@ -153,7 +153,7 @@
             </div>
             <div class="input-group">
                 <label for="coolingDistance">Cooling Distance (meters):</label>
-                <input type="number" id="coolingDistance" name="coolingDistance" value="500">
+                <input type="number" id="coolingDistance" name="coolingDistance" value="200">
             </div>
             <button type="button" onclick="updateTreePlanting()">Update Tree Planting</button>
             <button type="button" onclick="clearPlantedTrees()">Clear Planted Trees</button>
@@ -222,7 +222,7 @@
                 </div>
                 <div class="input-group">
                     <label for="schoolHeatingDistance">School Heating Distance (meters):</label>
-                    <input type="number" id="schoolHeatingDistance" name="schoolHeatingDistance" value="500">
+                    <input type="number" id="schoolHeatingDistance" name="schoolHeatingDistance" value="200">
                 </div>
             </div>
 
@@ -242,7 +242,7 @@
                 </div>
                 <div class="input-group">
                     <label for="facilityHeatingDistance">Facility Heating Distance (meters):</label>
-                    <input type="number" id="facilityHeatingDistance" name="facilityHeatingDistance" value="500">
+                    <input type="number" id="facilityHeatingDistance" name="facilityHeatingDistance" value="60">
                 </div>
             </div>
 
@@ -267,16 +267,24 @@
                 <div class="input-group">
                     <label for="streetWeightField">Street Weight Field:</label>
                     <select id="streetWeightField" name="streetWeightField">
-                        <option value="SHAPE_Length">SHAPE_Length</option>
-                        <option value="StreetWidth_Min">StreetWidth_Min</option>
-                        <option value="StreetWidth_Max">StreetWidth_Max</option>
-                        <option value="BikeLane">BikeLane</option>
-                        <option value="Number_Travel_Lanes">Number_Travel_Lanes</option>
-                        <option value="Number_Park_Lanes">Number_Park_Lanes</option>
-                        <option value="Number_Total_Lanes">Number_Total_Lanes</option>
-                        <option value="POSTED_SPEED">POSTED_SPEED</option>
+                        <option value="SHAPE_Leng">SHAPE_Leng</option>
+                        <option value="BoroCode">BoroCode</option>
+                        <option value="BoroName">BoroName</option>
+                        <option value="BoroCD">BoroCD</option>
+                        <option value="CounDist">CounDist</option>
+                        <option value="AssemDist">AssemDist</option>
+                        <option value="StSenDist">StSenDist</option>
+                        <option value="CongDist">CongDist</option>
+                        <option value="Rank">Rank</option>
+                        <option value="PMP_ID">PMP_ID</option>
+                        <option value="NTA2020">NTA2020</option>
+                        <option value="Category">Category</option>
+                        <option value="NTAName">NTAName</option>
+                        <option value="FEMAFldz">FEMAFldz</option>
+                        <option value="FEMAFldT">FEMAFldT</option>
+                        <option value="HrcEvac">HrcEvac</option>
                     </select>
-                </div>
+                </div>                
             </div>
 
             <label class="custom-checkbox">Planting View
@@ -492,6 +500,106 @@ map.addLayer({
     }
 });
 
+map.addSource('treesLayer', {
+        type: 'geojson',
+        data: {
+            type: 'FeatureCollection',
+            features: []
+        }
+    });
+
+    map.addLayer({
+        id: 'treesLayer',
+        type: 'circle',
+        source: 'treesLayer',
+        paint: {
+            'circle-radius': 5,
+            'circle-color': '#00FF00',
+            'circle-opacity': 0.8
+        }
+    });
+
+ // Add source for facilities
+ map.addSource('facilityLayer', {
+        type: 'geojson',
+        data: {
+            type: 'FeatureCollection',
+            features: []
+        }
+    });
+
+    // Add layer for facilities
+    map.addLayer({
+        id: 'facilityLayer',
+        type: 'circle',
+        source: 'facilityLayer',
+        paint: {
+            'circle-radius': 5,
+            'circle-color': '#0000FF', // Blue color
+            'circle-opacity': 0.8
+        }
+    });
+
+    // Facility radius circle layer
+    map.addSource('facilityCirclesLayer', {
+        type: 'geojson',
+        data: {
+            type: 'FeatureCollection',
+            features: []
+        }
+    });
+
+    map.addLayer({
+        id: 'facilityCirclesLayer',
+        type: 'line',
+        source: 'facilityCirclesLayer',
+        paint: {
+            'line-color': '#0000FF', // Blue color
+            'line-width': 2
+        }
+    });
+
+// Add source for streets
+map.addSource('streetLayer', {
+    type: 'geojson',
+    data: {
+        type: 'FeatureCollection',
+        features: []
+    }
+});
+
+map.addLayer({
+    id: 'streetLayer',
+    type: 'line',
+    source: 'streetLayer',
+    paint: {
+        'line-color': 'gray',
+        'line-width': 2,
+        'line-opacity': 0.7
+    }
+});
+
+map.addSource('streetBuffersLayer', {
+    type: 'geojson',
+    data: {
+        type: 'FeatureCollection',
+        features: []
+    }
+});
+
+map.addLayer({
+    id: 'streetBuffersLayer',
+    type: 'fill',
+    source: 'streetBuffersLayer',
+    paint: {
+        'fill-color': 'blue',
+        'fill-opacity': 0.2
+    }
+});
+
+    document.getElementById('treeToggleView').addEventListener('change', toggleTreeSettings);
+    document.getElementById('treeRadiusToggle').addEventListener('change', toggleTreeRadius);
+
 
     // Add event listeners for school settings
     document.getElementById('schoolHeatingEffect').addEventListener('change', updatePlantableAreaColors);
@@ -520,32 +628,26 @@ map.addLayer({
         }
 
         function updateTreePlanting() {
-            var totalTrees = parseInt(document.getElementById('totalTrees').value);
-            var coolingEffect = parseFloat(document.getElementById('coolingEffect').value);
-            var coolingDistance = parseInt(document.getElementById('coolingDistance').value);
+    var totalTrees = parseInt(document.getElementById('totalTrees').value);
+    var coolingEffect = parseFloat(document.getElementById('coolingEffect').value);
+    var coolingDistance = parseInt(document.getElementById('coolingDistance').value);
 
-            // Clear existing tree markers
-            clearMapLayers();
+    // Clear existing tree markers
+    clearMapLayers();
 
-            // Example values for schoolEffect and schoolDistance, replace with actual input retrieval
-            let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
-            let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+    let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
+    let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+    let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
+    let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+    let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
+    let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+    let streetEffect = parseFloat(document.getElementById('streetEffect').value);
+    let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+    let streetWeightField = document.getElementById('streetWeightField').value;
 
-            // Example values for treeEffect and treeDistance, replace with actual input retrieval
-            let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
-            let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+    PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField);
+}
 
-            // Example values for facilityEffect and facilityDistance, replace with actual input retrieval
-            let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
-            let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
-
-            let streetEffect = parseFloat(document.getElementById('streetEffect').value);
-            let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
-            let streetWeightField = document.getElementById('streetWeightField').value;
-
-            // Pass the additional parameters for streets to the planting function
-            PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField);
-        }
 
         function clearMapLayers() {
     console.log('Clearing map layers');
@@ -614,71 +716,78 @@ map.addLayer({
         }
 
         function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField) {
-            let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+    let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
 
-            // Apply effects from schools and existing trees
-            geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
-            geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
-            // geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
-            // geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
+    // Apply effects from schools, trees, facilities, and streets
+    geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
+    geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
+    geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
+    geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
 
-            let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_type === 'plantable');
+    let plantableAreas = geojsonData.features.filter(feature => feature.properties.canopy_type === 'plantable');
 
-            let treesPlanted = 0;
+    let treesPlanted = 0;
 
-            while (treesPlanted < totalTrees && plantableAreas.length > 0) {
-                // Calculate the combined mean for each plantable area
-                plantableAreas.forEach(area => {
-                    // if heat index is on, add the heat index to the mean
-                    if (showHeatIndex) {
-                        area.properties._combinedMean = (area.properties._mean || 0) + (area.properties._schoolmean || 0) + (area.properties._treemean || 0) + (area.properties._facilitymean || 0);
-                    } else {
-                        area.properties._combinedMean = (area.properties._schoolmean || 0) + (area.properties._treemean || 0) + (area.properties._facilitymean || 0);
-                    }
-                });
+    while (treesPlanted < totalTrees && plantableAreas.length > 0) {
+        // Calculate the combined mean for each plantable area
+        plantableAreas.forEach(area => {
+            area.properties._combinedMean = (area.properties._mean || 0) + 
+                                             (area.properties._schoolmean || 0) + 
+                                             (area.properties._treemean || 0) + 
+                                             (area.properties._facilitymean || 0) + 
+                                             (area.properties._streetmean || 0);
+        });
 
-                // Sort plantable areas by _combinedMean property in descending order
-                plantableAreas.sort((a, b) => b.properties._combinedMean - a.properties._combinedMean);
+        // Sort plantable areas by _combinedMean property in descending order
+        plantableAreas.sort((a, b) => b.properties._combinedMean - a.properties._combinedMean);
 
-                const plantingArea = plantableAreas[0];
+        const plantingArea = plantableAreas[0];
+        const centroid = calculateCentroid(plantingArea.geometry);
 
-                const centroid = calculateCentroid(plantingArea.geometry);
-                placeTreeOnMap(centroid);
-                treesPlanted++;
+        placeTreeOnMap(centroid);
+        treesPlanted++;
 
-                // Apply cooling effect to the planted area if applicable
-                if (coolingEffect > 0) {
-                    plantingArea.properties._treemean = (plantingArea.properties._treemean || 0) - coolingEffect;
-                    if (document.getElementById('plantingViewToggle').checked) {
-                        plantingArea.properties._displayMean = (plantingArea.properties._mean || 0) + (plantingArea.properties._schoolmean || 0) + plantingArea.properties._treemean;
-                    }
-                }
-
-                // Filter and adjust remaining plantable areas considering cooling effect and distance
-                plantableAreas = plantableAreas.slice(1).filter(area => {
-                    const areaCentroid = calculateCentroid(area.geometry);
-                    const distance = getDistance(centroid[0], centroid[1], areaCentroid[0], areaCentroid[1]);
-                    if (coolingDistance > 0 && distance <= coolingDistance && coolingEffect > 0) {
-                        area.properties._treemean = (area.properties._treemean || 0) - coolingEffect * (coolingDistance - distance) / coolingDistance;
-                    }
-                    return area.properties._combinedMean > 0;
-                });
-            }
-
-            if (treesPlanted < totalTrees) {
-                console.log(`Planted ${treesPlanted} trees. Ran out of suitable planting areas.`);
-                document.getElementById('results').innerText = `Planted ${treesPlanted} trees. Ran out of suitable planting areas.`;
-            } else {
-                console.log(`Successfully planted all ${totalTrees} trees.`);
-                document.getElementById('results').innerText = `Successfully planted all ${totalTrees} trees.`;
-            }
-
-            if (document.getElementById('plantingViewToggle').checked) {
-                calculateMinMaxMean(geojsonData);
-                updateMeanColors(geojsonData);
-                displayGeoJson(geojsonData);
-            }
+        // Apply cooling effect to the planted area if applicable
+        if (coolingEffect > 0) {
+            plantingArea.properties._treemean = (plantingArea.properties._treemean || 0) - coolingEffect;
+            plantingArea.properties._displayMean = (plantingArea.properties._mean || 0) + 
+                                                    (plantingArea.properties._schoolmean || 0) + 
+                                                    (plantingArea.properties._treemean || 0) + 
+                                                    (plantingArea.properties._facilitymean || 0) + 
+                                                    (plantingArea.properties._streetmean || 0);
         }
+
+        // Filter and adjust remaining plantable areas considering cooling effect and distance
+        plantableAreas = plantableAreas.slice(1).filter(area => {
+            const areaCentroid = calculateCentroid(area.geometry);
+            const distance = getDistance(centroid[0], centroid[1], areaCentroid[0], areaCentroid[1]);
+            if (coolingDistance > 0 && distance <= coolingDistance && coolingEffect > 0) {
+                area.properties._treemean = (area.properties._treemean || 0) - coolingEffect * (coolingDistance - distance) / coolingDistance;
+                area.properties._displayMean = (area.properties._mean || 0) + 
+                                               (area.properties._schoolmean || 0) + 
+                                               (area.properties._treemean || 0) + 
+                                               (area.properties._facilitymean || 0) + 
+                                               (area.properties._streetmean || 0);
+            }
+            return area.properties._combinedMean > 0;
+        });
+    }
+
+    if (treesPlanted < totalTrees) {
+        console.log(`Planted ${treesPlanted} trees. Ran out of suitable planting areas.`);
+        document.getElementById('results').innerText = `Planted ${treesPlanted} trees. Ran out of suitable planting areas.`;
+    } else {
+        console.log(`Successfully planted all ${totalTrees} trees.`);
+        document.getElementById('results').innerText = `Successfully planted all ${totalTrees} trees.`;
+    }
+
+    if (document.getElementById('plantingViewToggle').checked) {
+        calculateMinMaxMean(geojsonData);
+        updateMeanColors(geojsonData);
+        displayGeoJson(geojsonData);
+    }
+}
+
 
         function placeTreeOnMap(centroid) {
             const treeMarkerSource = map.getSource('treeMarkers');
@@ -855,49 +964,49 @@ map.addLayer({
         }
 
         function updatePlantableAreaColors() {
-            let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+    // Clone the original GeoJSON data to avoid modifying it directly
+    let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
 
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.canopy_type === 'plantable') {
-                    feature.properties._heatIndex = 0;
-                    feature.properties._displayMean = 0;
-                    feature.properties._schoolmean = 0;
-                    feature.properties._treemean = 0;
-                    feature.properties._facilitymean = 0;
-                    feature.properties._streetmean = 0;
-                    feature.properties.color = '#008000';
-                }
-            });
+    // Apply the necessary effects
+    let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
+    let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
+    let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
+    let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+    let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
+    let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+    let streetEffect = parseFloat(document.getElementById('streetEffect').value);
+    let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+    let streetWeightField = document.getElementById('streetWeightField').value;
 
-            let schoolEffect = parseFloat(document.getElementById('schoolHeatingEffect').value);
-            let schoolDistance = parseInt(document.getElementById('schoolHeatingDistance').value);
-            let treeEffect = parseFloat(document.getElementById('treeCoolingEffect').value);
-            let treeDistance = parseInt(document.getElementById('treeCoolingDistance').value);
-            let streetEffect = parseFloat(document.getElementById('streetEffect').value);
-            let streetBufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
-            let streetWeightField = document.getElementById('streetWeightField').value;
+    geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
+    geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
+    geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
+    geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
 
-            geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
-            geojsonData = applyTreeEffect(geojsonData, treeEffect, treeDistance);
-            let facilityEffect = parseFloat(document.getElementById('facilityHeatingEffect').value);
-            let facilityDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
-            // geojsonData = applyFacilityEffect(geojsonData, facilityEffect, facilityDistance);
-            // geojsonData = applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField);
+    // Calculate _displayMean based on the selected options and apply it to existing means
+    geojsonData.features.forEach(feature => {
+        if (feature.properties.canopy_type === 'plantable') {
+            let currentMean = feature.properties._mean || 0;
+            let schoolMean = feature.properties._schoolmean || 0;
+            let treeMean = feature.properties._treemean || 0;
+            let facilityMean = feature.properties._facilitymean || 0;
+            let streetMean = feature.properties._streetmean || 0;
 
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.canopy_type === 'plantable') {
-                    if (document.getElementById('heatIndexToggle').checked) {
-                        feature.properties._displayMean = feature.properties._mean + (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0) + (feature.properties._streetmean || 0);
-                    } else {
-                        feature.properties._displayMean = (feature.properties._schoolmean || 0) + (feature.properties._treemean || 0) + (feature.properties._facilitymean || 0) + (feature.properties._streetmean || 0);
-                    }
-                }
-            });
-
-            calculateMinMaxMean(geojsonData);
-            updateMeanColors(geojsonData);
-            displayGeoJson(geojsonData);
+            if (document.getElementById('heatIndexToggle').checked) {
+                feature.properties._displayMean = currentMean + schoolMean + treeMean + facilityMean + streetMean;
+            } else {
+                feature.properties._displayMean = schoolMean + treeMean + facilityMean + streetMean;
+            }
         }
+    });
+
+    calculateMinMaxMean(geojsonData);
+    updateMeanColors(geojsonData);
+    displayGeoJson(geojsonData);
+}
+
+
+
 
         function getMeanColor(mean) {
             const normalizedMean = (mean - minMean) / (maxMean - minMean);
@@ -918,6 +1027,46 @@ map.addLayer({
                 }
             });
         }
+
+        function applyFacilityEffect(geojsonData, facilityEffect, facilityDistance) {
+    if (!document.getElementById('facilityToggleView').checked) {
+        return geojsonData;
+    }
+
+    var effectType = document.querySelector('input[name="effectType"]:checked').value;
+    var sigma = parseFloat(document.getElementById('gaussianSigma').value);
+    var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
+    
+    var facilityLayer = map.getSource('facilityLayer')._data;
+
+    geojsonData.features.forEach(plantableArea => {
+        if (plantableArea.properties.canopy_type === 'plantable') {
+            const plantableCentroid = calculateCentroid(plantableArea.geometry);
+
+            facilityLayer.features.forEach(facilityFeature => {
+                const facilityPoint = facilityFeature.geometry.coordinates;
+
+                const distance = getDistance(plantableCentroid[0], plantableCentroid[1], facilityPoint[1], facilityPoint[0]);
+                if (effectType === 'binary') {
+                    if (distance <= facilityDistance) {
+                        if (!plantableArea.properties._facilitymean) {
+                            plantableArea.properties._facilitymean = 0;
+                        }
+                        plantableArea.properties._facilitymean += facilityEffect;
+                    }
+                } else if (effectType === 'gaussian') {
+                    var weight = gaussianWeight(distance, facilityDistance, sigma, amplitude);
+                    if (!plantableArea.properties._facilitymean) {
+                        plantableArea.properties._facilitymean = 0;
+                    }
+                    plantableArea.properties._facilitymean += facilityEffect * weight;
+                }
+            });
+        }
+    });
+    return geojsonData;
+}
+
 
         function applySchoolEffect(geojsonData, schoolEffect, schoolDistance) {
     if (!document.getElementById('schoolToggleView').checked) {
@@ -963,135 +1112,356 @@ map.addLayer({
             var z = distance / (effectDistance * sigma);
             return amplitude * Math.exp(-0.5 * z * z);
         }
+   
+        // Function to apply tree effect
+function applyTreeEffect(geojsonData, treeEffect, treeDistance) {
+    var effectType = document.querySelector('input[name="effectType"]:checked').value;
+    var sigma = parseFloat(document.getElementById('gaussianSigma').value);
+    var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
 
-        function applyTreeEffect(geojsonData, treeEffect, treeDistance) {
-            if (!document.getElementById('treeToggleView').checked) {
-                return geojsonData;
-            }
-
-            var effectType = document.querySelector('input[name="effectType"]:checked').value;
-            var sigma = parseFloat(document.getElementById('gaussianSigma').value);
-            var amplitude = parseFloat(document.getElementById('gaussianAmplitude').value);
-
-            var plantableIndex = new RBush();
-            geojsonData.features.forEach(function(feature) {
-                if (feature.properties.canopy_type === 'plantable') {
-                    var bbox = turf.bbox(feature);
-                    plantableIndex.insert({
-                        minX: bbox[0],
-                        minY: bbox[1],
-                        maxX: bbox[2],
-                        maxY: bbox[3],
-                        feature: feature
-                    });
-                }
+    var plantableIndex = new RBush();
+    geojsonData.features.forEach(function(feature) {
+        if (feature.properties.canopy_type === 'plantable') {
+            var bbox = turf.bbox(feature);
+            plantableIndex.insert({
+                minX: bbox[0],
+                minY: bbox[1],
+                maxX: bbox[2],
+                maxY: bbox[3],
+                feature: feature
             });
+        }
+    });
 
-            treeLayer.eachLayer(function(treeFeatureLayer) {
-                treeFeatureLayer.eachLayer(function(layer) {
-                    if (layer instanceof mapboxgl.Marker) {
-                        const treePoint = layer.getLngLat();
-                        const treePointGeoJSON = turf.point([treePoint.lng, treePoint.lat]);
-                        const boundingBox = turf.bbox(turf.circle(treePointGeoJSON, treeDistance, { units: 'meters' }));
+    var treeLayer = map.getSource('treesLayer')._data;
 
-                        var plantablesInRange = plantableIndex.search({
-                            minX: boundingBox[0],
-                            minY: boundingBox[1],
-                            maxX: boundingBox[2],
-                            maxY: boundingBox[3]
-                        });
+    treeLayer.features.forEach(function(treeFeature) {
+        const treePoint = treeFeature.geometry.coordinates;
+        const treePointGeoJSON = turf.point(treePoint);
+        const boundingBox = turf.bbox(turf.circle(treePointGeoJSON, treeDistance, { units: 'meters' }));
 
-                        plantablesInRange.forEach(function(plantable) {
-                            var feature = plantable.feature;
-                            var areaCentroid = turf.centroid(feature).geometry.coordinates;
+        var plantablesInRange = plantableIndex.search({
+            minX: boundingBox[0],
+            minY: boundingBox[1],
+            maxX: boundingBox[2],
+            maxY: boundingBox[3]
+        });
 
-                            var distance = turf.distance(treePointGeoJSON, turf.point(areaCentroid), { units: 'meters' });
+        plantablesInRange.forEach(function(plantable) {
+            var feature = plantable.feature;
+            var areaCentroid = turf.centroid(feature).geometry.coordinates;
 
-                            if (effectType === 'binary') {
-                                if (distance <= treeDistance) {
-                                    if (!feature.properties._treemean) {
-                                        feature.properties._treemean = 0;
-                                    }
-                                    feature.properties._treemean -= treeEffect;
-                                }
-                            } else if (effectType === 'gaussian') {
-                                var weight = gaussianWeight(distance, treeDistance, sigma, amplitude);
-                                if (!feature.properties._treemean) {
-                                    feature.properties._treemean = 0;
-                                }
-                                feature.properties._treemean -= treeEffect * weight;
-                            }
-                        });
+            var distance = turf.distance(treePointGeoJSON, turf.point(areaCentroid), { units: 'meters' });
+
+            if (effectType === 'binary') {
+                if (distance <= treeDistance) {
+                    if (!feature.properties._treemean) {
+                        feature.properties._treemean = 0;
                     }
+                    feature.properties._treemean -= treeEffect;
+                }
+            } else if (effectType === 'gaussian') {
+                var weight = gaussianWeight(distance, treeDistance, sigma, amplitude);
+                if (!feature.properties._treemean) {
+                    feature.properties._treemean = 0;
+                }
+                feature.properties._treemean -= treeEffect * weight;
+            }
+        });
+    });
+
+    return geojsonData;
+}
+var treeCircles = [];
+
+function toggleTreeData() {
+    var treeDataVisible = document.getElementById('treeToggleView').checked;
+    var showTreeRadius = document.getElementById('treeRadiusToggle').checked;
+
+    if (treeDataVisible) {
+        $.getJSON(`./borosTrees/boro_cd_${document.getElementById('boroSelect').value}.geojson`, function(data) {
+            map.getSource('treesLayer').setData(data);
+
+            const treeFeatures = [];
+            const circleFeatures = [];
+            treeCircles = [];
+
+            data.features.forEach(feature => {
+                const [lng, lat] = [feature.properties.longitude, feature.properties.Latitude];
+                console.log('Adding tree:', lng, lat);
+
+                // Add tree point feature
+                treeFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {}
                 });
-            });
 
-            return geojsonData;
-        }
+                // Add tree cooling effect circle feature
+                if (showTreeRadius) {
+                    const coolingDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+                    const effectCircle = turf.circle([lng, lat], coolingDistance, { units: 'meters' });
+                    const circleId = 'treesCircle_' + lng + '_' + lat;
 
-        function toggleTreeData() {
-            var treeDataVisible = document.getElementById('treeToggleView').checked;
-            var showTreeRadius = document.getElementById('treeRadiusToggle').checked;
-            if (treeDataVisible) {
-                if (!map.getSource('treeLayer')) {
-                    $.getJSON('treefolio84.geojson', function(data) {
-                        map.addSource('treeLayer', {
-                            type: 'geojson',
-                            data: data
-                        });
+                    treeCircles.push({
+                        id: circleId,
+                        coordinates: [lng, lat]
+                    });
 
-                        map.addLayer({
-                            id: 'treeLayer',
-                            type: 'circle',
-                            source: 'treeLayer',
-                            paint: {
-                                'circle-radius': 5,
-                                'circle-color': '#ADD8E6',
-                                'circle-opacity': 0.8
-                            }
-                        });
-
-                        data.features.forEach(feature => {
-                            const [lng, lat] = feature.geometry.coordinates;
-                            const coolingDistance = parseInt(document.getElementById('treeCoolingDistance').value);
-                            const effectCircle = turf.circle([lng, lat], coolingDistance, { units: 'meters' });
-
-                            if (showTreeRadius) {
-                                map.addSource('effectCircle' + Math.random(), {
-                                    type: 'geojson',
-                                    data: effectCircle
-                                });
-
-                                map.addLayer({
-                                    id: 'effectCircle' + Math.random(),
-                                    type: 'fill',
-                                    source: 'effectCircle' + Math.random(),
-                                    paint: {
-                                        'fill-color': 'red',
-                                        'fill-opacity': 0.5
-                                    }
-                                });
-                            }
-                        });
-
-                        updatePlantableAreaColors();
+                    circleFeatures.push({
+                        type: 'Feature',
+                        geometry: effectCircle.geometry,
+                        properties: {}
                     });
                 }
-            } else {
-                if (map.getSource('treeLayer')) {
-                    map.removeLayer('treeLayer');
-                    map.removeSource('treeLayer');
-                    updatePlantableAreaColors();
+            });
+
+            // Update treesLayer with all tree points
+            map.getSource('treesLayer').setData({
+                type: 'FeatureCollection',
+                features: treeFeatures
+            });
+
+            // Update or add circlesLayer with all cooling effect circles
+            if (showTreeRadius) {
+                if (map.getSource('circlesLayer')) {
+                    map.getSource('circlesLayer').setData({
+                        type: 'FeatureCollection',
+                        features: circleFeatures
+                    });
+                } else {
+                    map.addSource('circlesLayer', {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: circleFeatures
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'circlesLayer',
+                        type: 'line',
+                        source: 'circlesLayer',
+                        paint: {
+                            'line-color': '#008000', // Green color
+                            'line-width': 2
+                        }
+                    });
                 }
+            } else if (map.getSource('circlesLayer')) {
+                // Hide circles layer if not showing tree radius
+                map.getSource('circlesLayer').setData({
+                    type: 'FeatureCollection',
+                    features: []
+                });
             }
+
+            updatePlantableAreaColors();
+        });
+    } else {
+        if (map.getSource('treesLayer')) {
+            map.getSource('treesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+        }
+        if (map.getSource('circlesLayer')) {
+            map.getSource('circlesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
         }
 
-        function toggleTreeSettings() {
-            toggleTreeData();
-            var treeSettings = document.getElementById('treeSettings');
-            var treeToggle = document.getElementById('treeToggleView').checked;
-            treeSettings.style.display = treeToggle ? "block" : "none";
+        updatePlantableAreaColors();
+    }
+}
+
+
+// Function to toggle tree radius visibility
+function toggleTreeRadius() {
+    var showTreeRadius = document.getElementById('treeRadiusToggle').checked;
+    if (showTreeRadius) {
+        toggleTreeData();
+    } else {
+        if (map.getSource('circlesLayer')) {
+            map.getSource('circlesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
         }
+    }
+}
+
+
+
+document.getElementById('treeToggleView').addEventListener('change', toggleTreeSettings);
+document.getElementById('treeRadiusToggle').addEventListener('change', toggleTreeRadius);
+
+
+function toggleTreeSettings() {
+    toggleTreeData();
+    var treeSettings = document.getElementById('treeSettings');
+    var treeToggle = document.getElementById('treeToggleView').checked;
+    treeSettings.style.display = treeToggle ? "block" : "none";
+}
+
+
+function toggleFacilityData() {
+    var facilityDataVisible = document.getElementById('facilityToggleView').checked;
+    var showFacilityRadius = document.getElementById('facilityRadiusToggle').checked;
+    if (facilityDataVisible) {
+        $.getJSON(`./borosFacilities/boro_cd_${document.getElementById('boroSelect').value}.geojson`, function(data) {
+            map.getSource('facilityLayer').setData(data);
+
+            const facilityFeatures = [];
+            const facilityCircleFeatures = [];
+            facilityCircles = [];
+
+            data.features.forEach(feature => {
+                // const [lng, lat] = feature.geometry.coordinates;
+                // lng is feature.properties.LONGITUDE and lat is feature.properties.LATITUDE
+                const [lng, lat] = [feature.properties.LONGITUDE, feature.properties.LATITUDE];
+                facilityFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {}
+                });
+
+                if (showFacilityRadius) {
+                    const heatingDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+                    const effectCircle = turf.circle([lng, lat], heatingDistance, { units: 'meters' });
+                    const circleId = 'facilityCircle_' + lng + '_' + lat;
+
+                    facilityCircles.push({
+                        id: circleId,
+                        coordinates: [lng, lat]
+                    });
+
+                    facilityCircleFeatures.push({
+                        type: 'Feature',
+                        geometry: effectCircle.geometry,
+                        properties: {}
+                    });
+                }
+            });
+
+            map.getSource('facilityLayer').setData({
+                type: 'FeatureCollection',
+                features: facilityFeatures
+            });
+
+            if (showFacilityRadius) {
+                if (map.getSource('facilityCirclesLayer')) {
+                    map.getSource('facilityCirclesLayer').setData({
+                        type: 'FeatureCollection',
+                        features: facilityCircleFeatures
+                    });
+                } else {
+                    map.addSource('facilityCirclesLayer', {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: facilityCircleFeatures
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'facilityCirclesLayer',
+                        type: 'line',
+                        source: 'facilityCirclesLayer',
+                        paint: {
+                            'line-color': '#0000FF', // Blue color
+                            'line-width': 2
+                        }
+                    });
+                }
+            } else if (map.getSource('facilityCirclesLayer')) {
+                map.getSource('facilityCirclesLayer').setData({
+                    type: 'FeatureCollection',
+                    features: []
+                });
+            }
+
+            updatePlantableAreaColors();
+        });
+    } else {
+        if (map.getSource('facilityLayer')) {
+            map.getSource('facilityLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+        }
+        if (map.getSource('facilityCirclesLayer')) {
+            map.getSource('facilityCirclesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+        }
+
+        updatePlantableAreaColors();
+    }
+}
+
+function toggleFacilityRadius() {
+    var showFacilityRadius = document.getElementById('facilityRadiusToggle').checked;
+    if (showFacilityRadius) {
+        toggleFacilityData();
+    } else {
+        if (map.getSource('facilityCirclesLayer')) {
+            map.getSource('facilityCirclesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+        }
+    }
+}
+
+function toggleFacilitySettings() {
+    toggleFacilityData();
+    var facilitySettings = document.getElementById('facilitySettings');
+    var facilityToggle = document.getElementById('facilityToggleView').checked;
+    facilitySettings.style.display = facilityToggle ? "block" : "none";
+}
+// Function to update the radius of existing facility circles
+function updateFacilityHeatingDistance() {
+    const heatingDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+
+    const updatedCircleFeatures = [];
+
+    facilityCircles.forEach(circle => {
+        const coordinates = circle.coordinates;
+        const effectCircle = turf.circle(coordinates, heatingDistance, { units: 'meters' });
+
+        updatedCircleFeatures.push({
+            type: 'Feature',
+            geometry: effectCircle.geometry,
+            properties: {}
+        });
+    });
+
+    if (map.getSource('facilityCirclesLayer')) {
+        map.getSource('facilityCirclesLayer').setData({
+            type: 'FeatureCollection',
+            features: updatedCircleFeatures
+        });
+    }
+    
+    updatePlantableAreaColors();
+}
+
+// Event listener for the heating distance change
+document.getElementById('facilityHeatingDistance').addEventListener('change', function() {
+    updateFacilityHeatingDistance();
+    updatePlantableAreaColors();
+});
+
+
 
         function toggleGaussianSettings() {
             var effectType = document.querySelector('input[name="effectType"]:checked').value;
@@ -1113,13 +1483,17 @@ map.addLayer({
         });
 
         document.getElementById('treeCoolingDistance').addEventListener('change', function() {
-            updatePlantableAreaColors();
-        });
+    updateTreeCoolingDistance();
+    updatePlantableAreaColors();
+});
 
-        document.getElementById('treeCoolingEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('treeCoolingEffect').addEventListener('change', updatePlantableAreaColors);
+
+document.getElementById('treeToggleView').addEventListener('change', updatePlantableAreaColors);
+
+
         document.getElementById('heatIndexScale').addEventListener('input', updatePlantableAreaColors);
         document.getElementById('schoolToggleView').addEventListener('change', updatePlantableAreaColors);
-        document.getElementById('treeToggleView').addEventListener('change', updatePlantableAreaColors);
 
         document.getElementById('plantingViewToggle').addEventListener('change', function() {
             updateTreePlanting();
@@ -1183,9 +1557,11 @@ async function switchBorough() {
     document.getElementById('boroSelect').setAttribute('data-current', selectedBorough);
 
     try {
-        const [boroughData, schoolData] = await Promise.all([
+        const [boroughData, schoolData, facilityData, streetData] = await Promise.all([
             loadGeoJson(`./boros/boro_cd_${selectedBorough}.geojson`),
-            loadGeoJson(`./borosSchools/boro_cd_${selectedBorough}.geojson`)
+            loadGeoJson(`./borosSchools/boro_cd_${selectedBorough}.geojson`),
+            loadGeoJson(`./borosFacilities/boro_cd_${selectedBorough}.geojson`),
+            loadGeoJson(`./borosStreets/boro_cd_${selectedBorough}.geojson`) // Load street data
         ]);
 
         originalGeoJsonData = boroughData;
@@ -1194,18 +1570,186 @@ async function switchBorough() {
         updatePlantableAreaColors();
         zoomToBorough(boroughData);
 
-        map.setLayoutProperty('schoolLayer', 'visibility', 'none');
-        map.getSource('schoolLayer').setData(schoolData);
+        // Handle school data
+        if (map.getSource('schoolLayer')) {
+            map.setLayoutProperty('schoolLayer', 'visibility', 'none');
+            map.getSource('schoolLayer').setData(schoolData);
+        }
 
-        // If the school toggle is enabled, create the school circles
         if (document.getElementById('schoolToggleView').checked) {
             createSchoolCircles(schoolData);
-            toggleSchoolRadius(); // Ensure the radius visibility is set correctly
+            toggleSchoolRadius();
         }
+
+        // Handle tree data
+        if (map.getSource('treesLayer') && document.getElementById('treeToggleView').checked) {
+            const treeData = await loadGeoJson(`./borosTrees/boro_cd_${selectedBorough}.geojson`);
+            map.getSource('treesLayer').setData(treeData);
+
+            const treeFeatures = [];
+            const circleFeatures = [];
+            const showTreeRadius = document.getElementById('treeRadiusToggle').checked;
+            treeCircles = [];
+
+            treeData.features.forEach(feature => {
+                const [lng, lat] = [feature.properties.longitude, feature.properties.Latitude];
+
+                treeFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {}
+                });
+
+                if (showTreeRadius) {
+                    const coolingDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+                    const effectCircle = turf.circle([lng, lat], coolingDistance, { units: 'meters' });
+                    const circleId = 'treesCircle_' + lng + '_' + lat;
+
+                    treeCircles.push({
+                        id: circleId,
+                        coordinates: [lng, lat]
+                    });
+
+                    circleFeatures.push({
+                        type: 'Feature',
+                        geometry: effectCircle.geometry,
+                        properties: {}
+                    });
+                }
+            });
+
+            map.getSource('treesLayer').setData({
+                type: 'FeatureCollection',
+                features: treeFeatures
+            });
+
+            if (showTreeRadius) {
+                if (map.getSource('circlesLayer')) {
+                    map.getSource('circlesLayer').setData({
+                        type: 'FeatureCollection',
+                        features: circleFeatures
+                    });
+                } else {
+                    map.addSource('circlesLayer', {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: circleFeatures
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'circlesLayer',
+                        type: 'line',
+                        source: 'circlesLayer',
+                        paint: {
+                            'line-color': '#008000',
+                            'line-width': 2
+                        }
+                    });
+                }
+            } else if (map.getSource('circlesLayer')) {
+                map.getSource('circlesLayer').setData({
+                    type: 'FeatureCollection',
+                    features: []
+                });
+            }
+        }
+
+        // Handle facility data
+        if (map.getSource('facilityLayer') && document.getElementById('facilityToggleView').checked) {
+            map.getSource('facilityLayer').setData(facilityData);
+
+            const facilityFeatures = [];
+            const circleFeatures = [];
+            const showFacilityRadius = document.getElementById('facilityRadiusToggle').checked;
+            facilityCircles = [];
+
+            facilityData.features.forEach(feature => {
+                const [lng, lat] = [feature.properties.LONGITUDE, feature.properties.LATITUDE];
+
+                facilityFeatures.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    },
+                    properties: {}
+                });
+
+                if (showFacilityRadius) {
+                    const heatingDistance = parseInt(document.getElementById('facilityHeatingDistance').value);
+                    const effectCircle = turf.circle([lng, lat], heatingDistance, { units: 'meters' });
+
+                    facilityCircles.push({
+                        coordinates: [lng, lat]
+                    });
+
+                    circleFeatures.push({
+                        type: 'Feature',
+                        geometry: effectCircle.geometry,
+                        properties: {}
+                    });
+                }
+            });
+
+            map.getSource('facilityLayer').setData({
+                type: 'FeatureCollection',
+                features: facilityFeatures
+            });
+
+            if (showFacilityRadius) {
+                map.getSource('facilityCirclesLayer').setData({
+                    type: 'FeatureCollection',
+                    features: circleFeatures
+                });
+            } else {
+                map.getSource('facilityCirclesLayer').setData({
+                    type: 'FeatureCollection',
+                    features: []
+                });
+            }
+        } else if (map.getSource('facilityLayer')) {
+            map.getSource('facilityLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+            map.getSource('facilityCirclesLayer').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+        }
+
+        // Handle street data
+        if (map.getSource('streetsLayer')) {
+            map.removeLayer('streetsLayer');
+            map.removeSource('streetsLayer');
+        }
+
+        if (map.getSource('streetBuffersLayer')) {
+            map.removeLayer('streetBuffersLayer');
+            map.removeSource('streetBuffersLayer');
+        }
+
+        if (document.getElementById('streetToggleView').checked) {
+            loadStreets().then(() => {
+                const showStreetBuffer = document.getElementById('streetBufferToggle').checked;
+                toggleStreetBuffer(showStreetBuffer); // Ensure buffer visibility matches toggle state
+            });
+        }
+
+
     } catch (error) {
         console.error('Error loading data:', error);
     }
 }
+
+
+
+
 
         function zoomToBorough(geojsonData) {
         var bounds = turf.bbox(geojsonData);
@@ -1287,6 +1831,56 @@ function createSchoolCircles(data) {
         }
     });
 }
+function updateTreeCoolingDistance() {
+    var coolingDistance = parseInt(document.getElementById('treeCoolingDistance').value);
+    var showTreeRadius = document.getElementById('treeRadiusToggle').checked;
+
+    // Remove existing circles
+    if (map.getSource('circlesLayer')) {
+        map.removeLayer('circlesLayer');
+        map.removeSource('circlesLayer');
+    }
+
+    const circleFeatures = [];
+
+    treeCircles.forEach(circle => {
+        var coordinates = circle.coordinates;
+        var effectCircle = turf.circle(coordinates, coolingDistance, { units: 'meters' });
+
+        circleFeatures.push({
+            type: 'Feature',
+            geometry: effectCircle.geometry,
+            properties: {}
+        });
+    });
+
+    if (showTreeRadius) {
+        map.addSource('circlesLayer', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: circleFeatures
+            }
+        });
+
+        map.addLayer({
+            id: 'circlesLayer',
+            type: 'line',
+            source: 'circlesLayer',
+            paint: {
+                'line-color': '#008000', // Green color for outline
+                'line-width': 2
+            },
+            layout: {
+                'visibility': showTreeRadius ? 'visible' : 'none'
+            }
+        });
+    }
+
+    updatePlantableAreaColors();
+}
+
+
 
 
 // Function to update the school heating distance
@@ -1399,6 +1993,187 @@ document.getElementById('boroSelect').addEventListener('change', switchBorough);
 //         }
 //     });
 // }
+
+
+function toggleStreetData() {
+    const streetDataVisible = document.getElementById('streetToggleView').checked;
+    const showStreetBuffer = document.getElementById('streetBufferToggle').checked;
+
+    if (streetDataVisible) {
+        if (map.getSource('streetsLayer')) {
+            map.setLayoutProperty('streetsLayer', 'visibility', 'visible');
+            toggleStreetBuffer(showStreetBuffer); // Handle buffer visibility
+        } else {
+            loadStreets().then(() => {
+                const showStreetBuffer = document.getElementById('streetBufferToggle').checked;
+                toggleStreetBuffer(showStreetBuffer); // Ensure buffer visibility matches toggle state
+            });
+        }
+    } else {
+        if (map.getSource('streetsLayer')) {
+            map.setLayoutProperty('streetsLayer', 'visibility', 'none');
+        }
+        if (map.getSource('streetBuffersLayer')) {
+            map.setLayoutProperty('streetBuffersLayer', 'visibility', 'none');
+        }
+    }
+}
+
+
+
+function loadStreets() {
+    var selectedBorough = document.getElementById('boroSelect').value;
+
+    return new Promise((resolve, reject) => {
+        $.getJSON(`./borosStreets/boro_cd_${selectedBorough}.geojson`, function(data) {
+            if (!map.getSource('streetsLayer')) {
+                map.addSource('streetsLayer', {
+                    type: 'geojson',
+                    data: data
+                });
+
+                map.addLayer({
+                    id: 'streetsLayer',
+                    type: 'line',
+                    source: 'streetsLayer',
+                    paint: {
+                        'line-color': 'gray',
+                        'line-width': 2,
+                        'line-opacity': 0.7
+                    }
+                });
+            } else {
+                map.getSource('streetsLayer').setData(data);
+            }
+
+            updateStreetBuffers(data); // Pass the data to the buffer update function
+            resolve();
+        }).fail(reject);
+    });
+}
+
+
+
+function updateStreetBuffers(streetData) {
+    if (!streetData) {
+        streetData = map.getSource('streetsLayer')._data;
+    }
+    
+    const bufferDistance = parseInt(document.getElementById('streetBufferDistance').value);
+    const streetBuffers = [];
+
+    streetData.features.forEach(feature => {
+        const buffer = turf.buffer(feature, bufferDistance, { units: 'meters' });
+        streetBuffers.push(buffer);
+    });
+
+    if (map.getSource('streetBuffersLayer')) {
+        map.getSource('streetBuffersLayer').setData({
+            type: 'FeatureCollection',
+            features: streetBuffers
+        });
+        map.setLayoutProperty('streetBuffersLayer', 'visibility', 'visible');
+    } else {
+        map.addSource('streetBuffersLayer', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: streetBuffers
+            }
+        });
+
+        map.addLayer({
+            id: 'streetBuffersLayer',
+            type: 'fill',
+            source: 'streetBuffersLayer',
+            paint: {
+                'fill-color': 'blue',
+                'fill-opacity': 0.2
+            }
+        });
+    }
+}
+
+
+
+
+
+function toggleStreetBuffer(showBuffer) {
+    map.setLayoutProperty('streetBuffersLayer', 'visibility', showBuffer ? 'visible' : 'none');
+}
+
+function applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, streetWeightField) {
+    if (!document.getElementById('streetToggleView').checked) {
+        return geojsonData;
+    }
+
+    var plantableIndex = new RBush();
+    geojsonData.features.forEach(function(feature) {
+        if (feature.properties.canopy_type === 'plantable') {
+            var bbox = turf.bbox(feature);
+            plantableIndex.insert({
+                minX: bbox[0],
+                minY: bbox[1],
+                maxX: bbox[2],
+                maxY: bbox[3],
+                feature: feature
+            });
+        }
+    });
+
+    var streetData = map.getSource('streetsLayer')._data;
+    streetData.features.forEach(function(streetFeature) {
+        var buffer = turf.buffer(streetFeature, streetBufferDistance, { units: 'meters' });
+        var boundingBox = turf.bbox(buffer);
+
+        var plantablesInRange = plantableIndex.search({
+            minX: boundingBox[0],
+            minY: boundingBox[1],
+            maxX: boundingBox[2],
+            maxY: boundingBox[3]
+        });
+
+        plantablesInRange.forEach(function(plantable) {
+            var feature = plantable.feature;
+            var intersection = turf.intersect(feature, buffer);
+
+            if (intersection) {
+                var streetWeight = streetFeature.properties[streetWeightField];
+                streetWeight = isNaN(streetWeight) ? 0 : streetWeight;
+
+                var effect = streetEffect * streetWeight;
+
+                if (!feature.properties._streetmean) {
+                    feature.properties._streetmean = 0;
+                }
+                feature.properties._streetmean += effect;
+            }
+        });
+    });
+
+    return geojsonData;
+}
+
+
+// Event listeners for street settings
+document.getElementById('streetBufferDistance').addEventListener('change', function() {
+    if (document.getElementById('streetToggleView').checked) {
+        loadStreets();
+    }
+});
+document.getElementById('streetEffect').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('streetWeightField').addEventListener('change', updatePlantableAreaColors);
+document.getElementById('streetToggleView').addEventListener('change', toggleStreetSettings);
+document.getElementById('streetBufferToggle').addEventListener('change', function() {
+    toggleStreetBuffer(document.getElementById('streetBufferToggle').checked);
+});
+
+function toggleStreetSettings() {
+    toggleStreetData();
+    var streetSettings = document.getElementById('streetSettings');
+    var streetToggle = document.getElementById('streetToggleView').checked;
+    streetSettings.style.display = streetToggle ? "block" : "none";
+}
 
 
 
