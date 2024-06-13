@@ -423,22 +423,43 @@ map.on('mouseleave', 'boroughs', function() {
                 data: {
                     type: 'FeatureCollection',
                     features: []
-                }
+                },
+                cluster: false // Ensure clustering is disabled
+
             });
 
             // Add a layer to display the tree markers
+            // map.addLayer({
+            //     id: 'treeMarkers',
+            //     type: 'circle',
+            //     source: 'treeMarkers',
+            //     paint: {
+            //         'circle-radius': 5,
+            //         'circle-color': '#ADD8E6',
+            //         // green instead
+            //         'circle-color': '#008000',
+            //         'circle-opacity': 0.8
+            //     }
+            // });
+            map.loadImage(
+            'https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png',
+            (error, image) => {
+                if (error) throw error;
+                map.addImage('custom-marker', image);
+            });
             map.addLayer({
                 id: 'treeMarkers',
-                type: 'circle',
+                type: 'symbol',
                 source: 'treeMarkers',
-                paint: {
-                    'circle-radius': 5,
-                    'circle-color': '#ADD8E6',
-                    // green instead
-                    'circle-color': '#008000',
-                    'circle-opacity': 0.8
-                }
+                layout: {
+                    'icon-image': 'custom-marker',
+                    "icon-allow-overlap": true,
+                    "icon-size": 0.5,
+                },
+                cluster: false
+
             });
+
             // Add your GeoJSON source
             map.addSource('plantableAreas', {
                 type: 'geojson',
@@ -489,16 +510,27 @@ map.addLayer({
     }
 });
 
+// map.addLayer({
+//     id: 'treeLayer',
+//     type: 'circle',
+//     source: 'treeLayer',
+//     paint: {
+//         'circle-radius': 5,
+//         'circle-color': '#00FF00',
+//         'circle-opacity': 0.8
+//     }
+// });
+
 map.addLayer({
     id: 'treeLayer',
-    type: 'circle',
+    type: 'symbol',
     source: 'treeLayer',
-    paint: {
-        'circle-radius': 5,
-        'circle-color': '#00FF00',
-        'circle-opacity': 0.8
+    layout: {
+        'icon-image': 'marker-15', // Default marker
+        'icon-size': 1.0
     }
 });
+
 
 map.addSource('treesLayer', {
         type: 'geojson',
