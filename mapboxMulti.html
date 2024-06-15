@@ -129,12 +129,181 @@
             font-weight: normal;
             z-index: 1000000;
         }
+
+        #treePopup {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 10000;
+}
+
+#treePopupContent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#homeButton {
+    cursor: pointer;
+    font-size: 20px;
+    user-select: none;
+}
+
+#treeNumberInput {
+    width: 50px;
+    padding: 5px;
+    text-align: center;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+
+#leftArrow, #rightArrow {
+    cursor: pointer;
+    font-size: 20px;
+    user-select: none;
+}
+
+#treeScoreBar {
+    display: flex;
+    gap: 2px;
+    /* width: 100%; */
+    margin-top: 10px;
+    height: 20px;
+    align-items: center;
+    width: 300px;
+}
+
+#treeScoreBar div {
+    height: 100%;
+    text-align: center;
+    font-size: 12px;
+    color: white;
+}
+
+#treeTitle {
+    text-align: center;
+    width: 50px;
+    font-weight: bold;
+}
+
+#boroSelect {
+    position: relative;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+#boroSelect:before {
+    content: '';
+    height: (36 - 5)px;
+    position: absolute;
+    right: 7px;
+    top: 3px;
+    width: 22px;
+
+    /* //background: -webkit-linear-gradient(#fff, #f0f0f0);
+    //background: -moz-linear-gradient(#fff, #f0f0f0);
+    //background: linear-gradient(#f5f5f5, #e0e0e0); */
+    background: #fff; 
+
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    pointer-events: none;
+    display: block;
+  }
+  #boroSelect:after {
+    content: " ";
+    position: absolute;
+    right: 15px;
+    top: 46%;
+    margin-top: -3px;
+    z-index: 2;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 6.9px 4px 0 4px;
+    border-color: #aaa transparent transparent transparent;
+    pointer-events: none;
+  }
+  select {
+    padding: 0 30px 0 10px;
+    line-height: 36px;
+    height: 36px;
+    background: #fff;
+  }
+
+  .radio {
+  display: block;
+  cursor: pointer;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+  text-align: left;
+}
+.radio + .radio {
+  margin-left: 12px;
+}
+.radio input {
+  display: none;
+}
+.radio input + span {
+  display: inline-block;
+  position: relative;
+  padding-left: 30px;
+}
+.radio input + span:before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  border-radius: 50%;
+  margin-right: 5px;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #ccc;
+  background: #fff;
+}
+.radio input + span:after {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  /* background: #222; */
+  background: #616161;
+  position: absolute;
+  border-radius: 50%;
+  /* top: 3px;
+  left: 3px; */
+  top: 3.5px;
+  left: 4px;
+  opacity: 0;
+  transform: scale(0, 0);
+  transition: all 0.2s cubic-bezier(0.64, 0.57, 0.67, 1.53);
+}
+.radio input:checked + span:after {
+  opacity: 1;
+  transform: scale(1, 1);
+}
+
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h2><i class="fas fa-tree"></i> Tree Planting Parameters</h2>
+        <h2 style="text-align: center;"><i class="fas fa-tree"></i> Treefolio Planting</h2>
         <form id="parametersForm">
             <div class="input-group">
                 <label for="boroSelect">Select Borough:</label>
@@ -155,14 +324,24 @@
                 <label for="coolingDistance">Cooling Distance (meters):</label>
                 <input type="number" id="coolingDistance" name="coolingDistance" value="200">
             </div>
-            <button type="button" onclick="updateTreePlanting()">Update Tree Planting</button>
-            <button type="button" onclick="clearPlantedTrees()">Clear Planted Trees</button>
+            <div style="display:flex; justify-content: space-between;">
+            <button type="button" onclick="updateTreePlanting()">Plant Trees</button>
+            <button id="exportButton" type="button" style="background-color:rgb(0, 123, 255); display: none;" onclick="exportToPDF()">Export</button>
+            <button type="button" style="background-color:rgb(105, 2, 2)" onclick="clearPlantedTrees()">Clear</button>
+            </div>
             <h4 id="results">...</h4>
 
-            <div class="input-group">
-                <label>Effect Type:</label>
-                <label><input type="radio" name="effectType" value="binary" onchange="toggleGaussianSettings()" checked> Binary</label>
-                <label><input type="radio" name="effectType" value="gaussian" onchange="toggleGaussianSettings()"> Gaussian</label>
+            <div class="input-group" style="display: flex;
+            flex-flow: row;">
+                <label>Effect:</label>
+                <label class="radio" style="margin-left: 32px;">
+                    <input type="radio" name="effectType" value="binary" onchange="toggleGaussianSettings()" checked>
+                    <span style="font-weight: 300;">Binary</span>
+                </label>
+                <label class="radio">
+                    <input class="radio" type="radio" name="effectType" value="gaussian" onchange="toggleGaussianSettings()">
+                    <span style="font-weight: 300;">Gaussian</span>
+                </label>
             </div>
             <div id="gaussianSettings" style="display: none;">
                 <div class="input-group">
@@ -175,7 +354,7 @@
                 </div>
             </div>
 
-            <label class="custom-checkbox">Show Heat Index
+            <label class="custom-checkbox">Heat Index
                 <input type="checkbox" id="heatIndexToggle" name="heatIndexToggle" onchange="toggleHeatIndex()" checked>
                 <span class="checkmark"></span>
             </label>
@@ -187,7 +366,7 @@
             </div>
 
             <!-- Tree Data Toggle and Settings -->
-            <label class="custom-checkbox">View Tree Data
+            <label class="custom-checkbox">Treefolio
                 <input type="checkbox" id="treeToggleView" name="treeToggleView" onchange="toggleTreeSettings()">
                 <span class="checkmark"></span>
             </label>
@@ -207,12 +386,12 @@
             </div>
 
             <!-- School Data Toggle and Settings -->
-            <label class="custom-checkbox">View School Data
+            <label class="custom-checkbox">Schools
                 <input type="checkbox" id="schoolToggleView" name="schoolToggleView" onchange="toggleSchoolSettings()">
                 <span class="checkmark"></span>
             </label>
             <div id="schoolSettings" style="display: none;">
-                <label class="custom-checkbox">Show School Radius
+                <label class="custom-checkbox">School Radius
                     <input type="checkbox" id="schoolRadiusToggle" name="schoolRadiusToggle" onchange="toggleSchoolRadius()" checked>
                     <span class="checkmark"></span>
                 </label>
@@ -227,12 +406,12 @@
             </div>
 
             <!-- Facility Data Toggle and Settings -->
-            <label class="custom-checkbox">View Facility Data
+            <label class="custom-checkbox">Facilities
                 <input type="checkbox" id="facilityToggleView" name="facilityToggleView" onchange="toggleFacilitySettings()">
                 <span class="checkmark"></span>
             </label>
             <div id="facilitySettings" style="display: none;">
-                <label class="custom-checkbox">Show Facility Radius
+                <label class="custom-checkbox">Facility Radius
                     <input type="checkbox" id="facilityRadiusToggle" name="facilityRadiusToggle" onchange="toggleFacilityRadius()" checked>
                     <span class="checkmark"></span>
                 </label>
@@ -247,12 +426,12 @@
             </div>
 
             <!-- Add the following in the sidebar section of the HTML -->
-            <label class="custom-checkbox">View Street Data
+            <label class="custom-checkbox">Streets
                 <input type="checkbox" id="streetToggleView" name="streetToggleView" onchange="toggleStreetSettings()">
                 <span class="checkmark"></span>
             </label>
             <div id="streetSettings" style="display: none;">
-                <label class="custom-checkbox">Show Street Buffer
+                <label class="custom-checkbox">Street Buffer
                     <input type="checkbox" id="streetBufferToggle" name="streetBufferToggle" onchange="toggleStreetBuffer()" checked>
                     <span class="checkmark"></span>
                 </label>
@@ -294,7 +473,22 @@
         </form>
     </div>
     
-    <div id="map"></div>
+    <div id="map">
+
+        
+        <div id="treePopup" style="display: none;">
+            <div id="treePopupContent">
+                <span id="leftArrow" onclick="navigateTree(-1)" style="display: none;">&#9664;</span>
+                <span id="treeTitle"></span>
+                <span id="rightArrow" onclick="navigateTree(1)" style="display: none;">&#9654;</span>
+                <span id="homeButton" onclick="showTreeMenu()">&#8962;</span>
+                <input type="number" id="treeNumberInput" style="display: none;" placeholder="Enter tree number" onchange="jumpToTree()">
+                <div id="treeScoreBar"></div>
+            </div>
+        </div>
+        
+
+    </div>
 
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js'></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -302,14 +496,224 @@
     <script src="shp.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/rbush@3.0.1/rbush.min.js"></script>
 
+
+            <!-- Add these scripts for jsPDF and html2canvas -->
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> -->
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <script>
-        mapboxgl.accessToken = 'pk.eyJ1IjoicnlhbmhsZXdpcyIsImEiOiJjbDhkcWZzcHowbGhiM3VrOWJ3ZmtzcnZyIn0.ipWAZK-oipctMjaHytOUKQ';
+
+function exportToPDF() {
+    // Get the selected borough
+    const selectedBorough = document.getElementById('boroSelect').value;
+
+    // Zoom to the selected borough
+    zoomToBorough(originalGeoJsonData);
+
+    // Flash other boroughs
+    flashOtherBoroughs(selectedBorough);
+
+    setTimeout(() => {
+        const originalDpi = window.devicePixelRatio;
+        Object.defineProperty(window, 'devicePixelRatio', {
+            get: function() { return 300 / 96; } // Set to 300 DPI
+        });
+
+        html2canvas(map.getCanvasContainer(), { scale: 2 }).then(canvas => {
+            const imgData = map.getCanvas().toDataURL('image/png');
+
+            const pdf = new jspdf.jsPDF();
+            pdf.setFontSize(14);
+            pdf.text(`Treefolio Planting Priority for Borough ${selectedBorough}`, 10, 10);
+            pdf.addImage(imgData, 'PNG', 10, 20, 180, 120);
+
+            let yOffset = 150;
+            let xOffset = 10;
+
+            const generateTreeScoreBar = (treeData, index) => {
+                return new Promise((resolve, reject) => {
+                    const scoreBarContainer = document.createElement('div');
+                    scoreBarContainer.style.width = '60px';
+                    scoreBarContainer.style.height = '15px';
+                    scoreBarContainer.style.display = 'flex';
+                    scoreBarContainer.style.alignItems = 'center';
+                    scoreBarContainer.style.position = 'absolute';
+                    scoreBarContainer.style.left = '-9999px';
+                    document.body.appendChild(scoreBarContainer);
+                    
+                    updateTreeScoreBarOriginal1(treeData, scoreBarContainer);
+
+                    setTimeout(() => {
+                        html2canvas(scoreBarContainer, { scale: 2 }).then(canvas => {
+                            const scoreBarData = canvas.toDataURL('image/png');
+                            pdf.setFontSize(10);
+                            pdf.text(`Tree #${index + 1}`, xOffset, yOffset);
+                            pdf.addImage(scoreBarData, 'PNG', xOffset, yOffset + 5, 60, 10);
+                            document.body.removeChild(scoreBarContainer);
+
+                            if (index % 3 === 2) {
+                                xOffset = 10;
+                                yOffset += 25;
+                            } else {
+                                xOffset += 65;
+                            }
+
+                            // Check if we need a new page
+                            if (yOffset > 270) {
+                                pdf.addPage();
+                                yOffset = 10;
+                                xOffset = 10;
+                            }
+
+                            resolve();
+                        }).catch(reject);
+                    }, 100); // Delay to ensure the element is rendered
+                });
+            };
+
+            const treePromises = plantedTrees.map((treeData, index) => {
+                return generateTreeScoreBar(treeData, index);
+            });
+
+            Promise.all(treePromises).then(() => {
+                pdf.save('map.pdf');
+                // Reset the borough colors
+                resetBoroughColors(selectedBorough);
+
+                // Restore original DPI
+                Object.defineProperty(window, 'devicePixelRatio', {
+                    get: function() { return originalDpi; }
+                });
+            }).catch(error => {
+                console.error('Error generating tree score bars:', error);
+                resetBoroughColors(selectedBorough);
+
+                // Restore original DPI
+                Object.defineProperty(window, 'devicePixelRatio', {
+                    get: function() { return originalDpi; }
+                });
+            });
+        }).catch(error => {
+            console.error('Error generating map image:', error);
+            resetBoroughColors(selectedBorough);
+
+            // Restore original DPI
+            Object.defineProperty(window, 'devicePixelRatio', {
+                get: function() { return originalDpi; }
+            });
+        });
+    }, 1000);
+}
+
+function updateTreeScoreBarOriginal1(treeData, scoreBarContainer) {
+    const totalScore = treeData._combinedMean;
+    const scoreParts = {
+        school: treeData._schoolmean,
+        tree: treeData._treemean,
+        facility: treeData._facilitymean,
+        street: treeData._streetmean,
+        heat: treeData._mean
+    };
+
+    console.log(scoreParts);
+
+    for (const [key, value] of Object.entries(scoreParts)) {
+        if (value === undefined) {
+            continue;
+        }
+
+        const percentage = (value / totalScore) * 100;
+        const color = getColorForKey(key);
+        const barPart = document.createElement('div');
+        barPart.style.backgroundColor = color;
+        barPart.style.width = `${percentage}%`;
+        barPart.style.height = '50%';
+        barPart.style.position = 'relative';
+        barPart.style.textAlign = 'center';
+        barPart.style.color = 'black';
+        barPart.style.fontSize = '4px'; // Adjust font size as needed
+        barPart.innerHTML = `<span style="font-size: 4px;">${capitalizeFirstLetter(key)}</span>${Math.round(percentage)}%`;
+        scoreBarContainer.appendChild(barPart);
+    }
+}
+
+function flashOtherBoroughs(selectedBorough) {
+    // Iterate through the borough features and set the flash state
+    map.getSource('boroughs').setData(map.getSource('boroughs')._data); // Ensure the source data is updated
+
+    map.querySourceFeatures('boroughs').forEach(feature => {
+        const boroughId = feature.properties.boro_cd;
+        if (boroughId != selectedBorough) {
+            map.setFeatureState({ source: 'boroughs', id: feature.id || feature.properties.id }, { flash: true });
+        } else {
+            map.setFeatureState({ source: 'boroughs', id: feature.id || feature.properties.id }, { flash: false });
+        }
+    });
+
+    setTimeout(() => {
+        resetBoroughColors(selectedBorough);
+    }, 1000);
+}
+
+function resetBoroughColors(selectedBorough) {
+    map.querySourceFeatures('boroughs').forEach(feature => {
+        map.setFeatureState({ source: 'boroughs', id: feature.id || feature.properties.id }, { flash: false });
+    });
+}
+
+
+
+async function generateTreeGraph(treeData) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 400;
+    canvas.height = 300;
+
+    const data = {
+        labels: ['School', 'Tree', 'Facility', 'Street', 'Heat'],
+        datasets: [{
+            label: 'Scores',
+            data: [
+                treeData._schoolmean,
+                treeData._treemean,
+                treeData._facilitymean,
+                treeData._streetmean,
+                treeData._mean
+            ],
+            backgroundColor: 'rgba(0, 123, 255, 0.5)',
+            borderColor: 'rgba(0, 123, 255, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    new Chart(ctx, {
+        type: 'line',
+        data: data,
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    return canvas;
+}
+
+
+mapboxgl.accessToken = 'pk.eyJ1IjoicnlhbmhsZXdpcyIsImEiOiJjbDhkcWZzcHowbGhiM3VrOWJ3ZmtzcnZyIn0.ipWAZK-oipctMjaHytOUKQ';
 
         var map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/light-v10',
             center: [-73.930188, 40.642935],
-            zoom: 13
+            zoom: 13,
+            preserveDrawingBuffer: true // Add this line
+
         });
 
         // load in treefolio84.geojson to originalGeoJsonData
@@ -345,6 +749,25 @@
                     'line-width': 2
                 }
             });
+
+// Add this layer for flashing effect in the Mapbox 'load' event
+map.addLayer({
+    id: 'boroughs-flash',
+    type: 'fill',
+    source: 'boroughs',
+    paint: {
+        'fill-color': ['case',
+            ['boolean', ['feature-state', 'flash'], false],
+            '#ffffff', // White color for flashing
+            'rgba(0,0,0,0)' // Transparent for the selected borough
+        ],
+        'fill-opacity': ['case',
+            ['boolean', ['feature-state', 'flash'], false],
+            1, // Fully opaque for flashing
+            0 // Fully transparent for the selected borough
+        ]
+    }
+});
 
             map.on('mousemove', 'boroughs', function(e) {
     if (e.features.length > 0) {
@@ -442,11 +865,24 @@ map.on('mouseleave', 'boroughs', function() {
             //     }
             // });
             map.loadImage(
-            'https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png',
+            './custom_marker.png',
             (error, image) => {
                 if (error) throw error;
                 map.addImage('custom-marker', image);
             });
+            // map.addLayer({
+            //     id: 'treeMarkers',
+            //     type: 'symbol',
+            //     source: 'treeMarkers',
+            //     layout: {
+            //         'icon-image': 'custom-marker',
+            //         "icon-allow-overlap": true,
+            //         "icon-size": 0.5,
+            //     },
+            //     cluster: false
+
+            // });
+
             map.addLayer({
                 id: 'treeMarkers',
                 type: 'symbol',
@@ -454,10 +890,12 @@ map.on('mouseleave', 'boroughs', function() {
                 layout: {
                     'icon-image': 'custom-marker',
                     "icon-allow-overlap": true,
-                    "icon-size": 0.5,
+                    "icon-size": ['get', 'iconSize'],
+                },
+                paint: {
+                    'icon-color': ['get', 'iconColor']
                 },
                 cluster: false
-
             });
 
             // Add your GeoJSON source
@@ -678,6 +1116,9 @@ map.addLayer({
     let streetWeightField = document.getElementById('streetWeightField').value;
 
     PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField);
+
+    document.getElementById('exportButton').style.display = 'block';
+
 }
 
 
@@ -713,7 +1154,14 @@ map.addLayer({
             features: []
         });
     }
+
+    plantedTrees = [];
+    currentTreeIndex = 0;
+
             document.getElementById('results').innerText = 'Cleared all planted trees.';
+        
+            document.getElementById('exportButton').style.display = 'none';
+
         }
 
 
@@ -748,7 +1196,11 @@ map.addLayer({
         }
 
         function PlantTrees(originalGeoJsonData, totalTrees, coolingEffect, coolingDistance, schoolEffect, schoolDistance, treeEffect, treeDistance, facilityEffect, facilityDistance, streetEffect, streetBufferDistance, streetWeightField) {
-    let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
+    
+            // clear existing tree markers
+            clearPlantedTrees();
+    
+            let geojsonData = JSON.parse(JSON.stringify(originalGeoJsonData));
 
     // Apply effects from schools, trees, facilities, and streets
     geojsonData = applySchoolEffect(geojsonData, schoolEffect, schoolDistance);
@@ -776,7 +1228,15 @@ map.addLayer({
         const plantingArea = plantableAreas[0];
         const centroid = calculateCentroid(plantingArea.geometry);
 
-        placeTreeOnMap(centroid);
+        // placeTreeOnMap(centroid);
+        placeTreeOnMap(centroid, {
+            _combinedMean: plantingArea.properties._combinedMean,
+            _schoolmean: plantingArea.properties._schoolmean,
+            _treemean: plantingArea.properties._treemean,
+            _facilitymean: plantingArea.properties._facilitymean,
+            _streetmean: plantingArea.properties._streetmean,
+            _mean: plantingArea.properties._mean
+        });
         treesPlanted++;
 
         // Apply cooling effect to the planted area if applicable
@@ -818,24 +1278,237 @@ map.addLayer({
         updateMeanColors(geojsonData);
         displayGeoJson(geojsonData);
     }
+
+    if (treesPlanted > 0) {
+        showTreePopup(-1);
+    }
 }
 
 
-        function placeTreeOnMap(centroid) {
-            const treeMarkerSource = map.getSource('treeMarkers');
-            const newFeature = {
-                type: 'Feature',
-                geometry: {
-                    type: 'Point',
-                    coordinates: [centroid[1], centroid[0]]
-                },
-                properties: {}
-            };
+        // function placeTreeOnMap(centroid) {
+        //     const treeMarkerSource = map.getSource('treeMarkers');
+        //     const newFeature = {
+        //         type: 'Feature',
+        //         geometry: {
+        //             type: 'Point',
+        //             coordinates: [centroid[1], centroid[0]]
+        //         },
+        //         properties: {}
+        //     };
 
-            const data = treeMarkerSource._data; // Access the current data
-            data.features.push(newFeature); // Add the new feature
-            treeMarkerSource.setData(data); // Update the source with the new data
+        //     const data = treeMarkerSource._data; // Access the current data
+        //     data.features.push(newFeature); // Add the new feature
+        //     treeMarkerSource.setData(data); // Update the source with the new data
+        // }
+
+
+        var plantedTrees = [];
+var currentTreeIndex = 0;
+
+function placeTreeOnMap(centroid, treeData) {
+    const treeMarkerSource = map.getSource('treeMarkers');
+    const newFeature = {
+        type: 'Feature',
+        geometry: {
+            type: 'Point',
+            coordinates: [centroid[1], centroid[0]]
+        },
+        // properties: treeData
+        properties: {
+            ...treeData,
+            iconSize: 0.5,
+            iconColor: '#008000' // Original color for unselected markers
         }
+    };
+
+    const data = treeMarkerSource._data; // Access the current data
+    data.features.push(newFeature); // Add the new feature
+    treeMarkerSource.setData(data); // Update the source with the new data
+
+    // Store the tree data
+    plantedTrees.push(treeData);
+}
+
+function showTreeMenu() {
+    document.getElementById('treeNumberInput').style.display = 'block';
+    document.getElementById('treeTitle').style.display = 'none';
+    document.getElementById('leftArrow').style.display = 'none';
+    document.getElementById('rightArrow').style.display = 'none';
+    document.getElementById('homeButton').style.display = 'none';
+}
+
+function hideTreeMenu() {
+    document.getElementById('treeNumberInput').style.display = 'none';
+    document.getElementById('treeTitle').style.display = 'block';
+    document.getElementById('leftArrow').style.display = 'block';
+    document.getElementById('rightArrow').style.display = 'block';
+    document.getElementById('homeButton').style.display = 'block';
+}
+
+function jumpToTree() {
+    var treeNumber = parseInt(document.getElementById('treeNumberInput').value);
+    if (treeNumber > 0 && treeNumber <= plantedTrees.length) {
+        showTreePopup(treeNumber - 1);
+    }
+    hideTreeMenu();
+}
+
+function updateTreeMarkers(selectedIndex) {
+    const treeMarkerSource = map.getSource('treeMarkers');
+    const features = treeMarkerSource._data.features;
+
+    features.forEach((feature, index) => {
+        if (index === selectedIndex) {
+            feature.properties.iconSize = 1.0;
+            feature.properties.iconColor = '#000000'; // Darker color for the selected marker
+        } else {
+            feature.properties.iconSize = 0.5;
+            feature.properties.iconColor = '#008000'; // Original color for unselected markers
+        }
+    });
+
+    treeMarkerSource.setData({
+        type: 'FeatureCollection',
+        features: features
+    });
+
+    updateTreeMarkers(index);
+
+}
+function showTreePopup(index) {
+
+    if(index < 0) {
+        index = plantedTrees.length - 1;
+        const treeData = plantedTrees[index];
+        document.getElementById('treeTitle').innerText = `Tree Tool - Use this to navigate planted trees!`;
+        document.getElementById('treeTitle').style.width = '100%';
+        document.getElementById('treePopup').style.display = 'block';
+        document.getElementById('homeButton').style.display = 'block';
+        document.getElementById('treeScoreBar').style.width = '0px';
+        currentTreeIndex = index;
+        return;
+    }
+
+    const treeData = plantedTrees[index];
+    document.getElementById('treeTitle').innerText = `Tree #${index + 1}`;
+
+    // Create a canvas for the score bar
+    const scoreBarContainer = document.getElementById('treeScoreBar');
+    scoreBarContainer.innerHTML = ''; // Clear any previous content
+    const scoreBarCanvas = document.createElement('canvas');
+    scoreBarCanvas.width = 300;
+    scoreBarCanvas.height = 50;
+    scoreBarContainer.appendChild(scoreBarCanvas);
+    
+    const scoreBarContext = scoreBarCanvas.getContext('2d');
+    updateTreeScoreBarOriginal(treeData);
+
+    document.getElementById('treeTitle').style.width = '50px';
+    document.getElementById('treeScoreBar').style.width = '300px';
+    document.getElementById('treePopup').style.display = 'block';
+    document.getElementById('leftArrow').style.color = index === 0 ? 'white' : 'black';
+    document.getElementById('rightArrow').style.color = index === plantedTrees.length - 1 ? 'white' : 'black';
+    document.getElementById('homeButton').style.display = 'block';
+    currentTreeIndex = index;
+
+    // Zoom to the selected tree
+    const coordinates = map.getSource('treeMarkers')._data.features[index].geometry.coordinates;
+    map.flyTo({ center: coordinates, zoom: 15 });
+}
+
+
+
+function updateTreeScoreBarOriginal(treeData) {
+    const scoreBar = document.getElementById('treeScoreBar');
+    scoreBar.innerHTML = '';
+
+    const totalScore = treeData._combinedMean;
+    const scoreParts = {
+        school: treeData._schoolmean,
+        tree: treeData._treemean,
+        facility: treeData._facilitymean,
+        street: treeData._streetmean,
+        heat: treeData._mean
+    };
+
+    console.log(scoreParts);
+
+    for (const [key, value] of Object.entries(scoreParts)) {
+        if(value == undefined) {
+            continue;
+        }
+
+        const percentage = (value / totalScore) * 100;
+        const color = getColorForKey(key);
+        const barPart = document.createElement('div');
+        barPart.style.backgroundColor = color;
+        barPart.style.width = `${percentage}%`;
+        barPart.innerText = `${Math.round(percentage)}%`;
+        barPart.style.position = 'relative';
+        barPart.innerHTML = `<span style="position: absolute; top: -20px; width: 100%; text-align: center; font-size: 10px; color: black;">${capitalizeFirstLetter(key)}</span>${Math.round(percentage)}%`;
+        scoreBar.appendChild(barPart);
+    }
+}
+
+function updateTreeScoreBar(treeData, context) {
+    const totalScore = treeData._combinedMean;
+    const scoreParts = {
+        school: treeData._schoolmean,
+        tree: treeData._treemean,
+        facility: treeData._facilitymean,
+        street: treeData._streetmean,
+        heat: treeData._mean
+    };
+
+    const barWidth = context.canvas.width;
+    const barHeight = context.canvas.height;
+    let xOffset = 0;
+
+    context.font = '10px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+
+    for (const [key, value] of Object.entries(scoreParts)) {
+        if (value === undefined) {
+            continue;
+        }
+
+        const percentage = (value / totalScore);
+        const width = barWidth * percentage;
+        const color = getColorForKey(key);
+
+        context.fillStyle = color;
+        context.fillRect(xOffset, 0, width, barHeight);
+
+        context.fillStyle = 'black';
+        context.fillText(`${Math.round(percentage * 100)}%`, xOffset + width / 2, barHeight / 2);
+        context.fillText(capitalizeFirstLetter(key), xOffset + width / 2, barHeight / 2 - 10);
+
+        xOffset += width;
+    }
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function getColorForKey(key) {
+    switch (key) {
+        case 'school': return 'red';
+        case 'tree': return 'green';
+        case 'facility': return 'blue';
+        case 'street': return 'purple';
+        case 'heat': return 'orange';
+        default: return 'black';
+    }
+}
+
+function navigateTree(direction) {
+    const newIndex = currentTreeIndex + direction;
+    if (newIndex >= 0 && newIndex < plantedTrees.length) {
+        showTreePopup(newIndex);
+    }
+}
 
 
         function getDistance(lat1, lon1, lat2, lon2) {
@@ -2226,6 +2899,9 @@ function applyStreetEffect(geojsonData, streetEffect, streetBufferDistance, stre
 }
 
 
+
+
+
 // Event listeners for street settings
 document.getElementById('streetBufferDistance').addEventListener('change', function() {
     if (document.getElementById('streetToggleView').checked) {
@@ -2252,5 +2928,7 @@ function toggleStreetSettings() {
 
         document.getElementById('boroSelect').addEventListener('change', switchBorough);
     </script>
+
+
 </body>
 </html>
