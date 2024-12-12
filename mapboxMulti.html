@@ -298,6 +298,36 @@
   transform: scale(1, 1);
 }
 
+/* Inline CSS for the stacked bar that will be used with html2canvas */
+#pdfBarContainer {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: row;
+    width: 200px;
+    height: 30px;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f5f5f5;
+    position: absolute;
+    left: -9999px;
+}
+
+.barSegment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #000;
+    font-weight: bold;
+    white-space: nowrap;
+    border-right: 1px solid #fff;
+}
+
+.barSegment:last-child {
+    border-right: none;
+}
+
     </style>
 </head>
 <body>
@@ -506,107 +536,445 @@
 
     <script>
 
-function exportToPDF() {
-    // Get the selected borough
+async function exportToPDF() {
     const selectedBorough = document.getElementById('boroSelect').value;
+    const boroughNameAndDistrict = getBoroughNameAndDistrict(selectedBorough);
 
-    // Zoom to the selected borough
-    zoomToBorough(originalGeoJsonData);
-
-    // Flash other boroughs
+    // Flash boroughs and give them time to render
     flashOtherBoroughs(selectedBorough);
 
-    setTimeout(() => {
-        const originalDpi = window.devicePixelRatio;
-        Object.defineProperty(window, 'devicePixelRatio', {
-            get: function() { return 300 / 96; } // Set to 300 DPI
-        });
+    // Take map screenshot now (with flashed boroughs)
+    // const originalDpi = window.devicePixelRatio;
+    // Object.defineProperty(window, 'devicePixelRatio', {
+    //     get: function() { return 300 / 96; }
+    // });
 
+    let mapCanvas;
+    let imgData;
+    try {
+        // mapCanvas = await html2canvas(map.getCanvasContainer(), { scale: 2 });
+        // imgData = mapCanvas.toDataURL('image/png');
+        // console.log(imgData);
+        // console.log(mapCanvas);
+        // console.log(mapCanvas.toDataURL('image/png'));
         html2canvas(map.getCanvasContainer(), { scale: 2 }).then(canvas => {
-            const imgData = map.getCanvas().toDataURL('image/png');
-
-            const pdf = new jspdf.jsPDF();
-            pdf.setFontSize(14);
-            pdf.text(`Treefolio Planting Priority for Borough ${selectedBorough}`, 10, 10);
-            pdf.addImage(imgData, 'PNG', 10, 20, 180, 120);
-
-            let yOffset = 150;
-            let xOffset = 10;
-
-            const generateTreeScoreBar = (treeData, index) => {
-                return new Promise((resolve, reject) => {
-                    const scoreBarContainer = document.createElement('div');
-                    scoreBarContainer.style.width = '60px';
-                    scoreBarContainer.style.height = '15px';
-                    scoreBarContainer.style.display = 'flex';
-                    scoreBarContainer.style.alignItems = 'center';
-                    scoreBarContainer.style.position = 'absolute';
-                    scoreBarContainer.style.left = '-9999px';
-                    document.body.appendChild(scoreBarContainer);
-                    
-                    updateTreeScoreBarOriginal1(treeData, scoreBarContainer);
-
-                    setTimeout(() => {
-                        html2canvas(scoreBarContainer, { scale: 2 }).then(canvas => {
-                            const scoreBarData = canvas.toDataURL('image/png');
-                            pdf.setFontSize(10);
-                            pdf.text(`Tree #${index + 1}`, xOffset, yOffset);
-                            pdf.addImage(scoreBarData, 'PNG', xOffset, yOffset + 5, 60, 10);
-                            document.body.removeChild(scoreBarContainer);
-
-                            if (index % 3 === 2) {
-                                xOffset = 10;
-                                yOffset += 25;
-                            } else {
-                                xOffset += 65;
-                            }
-
-                            // Check if we need a new page
-                            if (yOffset > 270) {
-                                pdf.addPage();
-                                yOffset = 10;
-                                xOffset = 10;
-                            }
-
-                            resolve();
-                        }).catch(reject);
-                    }, 100); // Delay to ensure the element is rendered
-                });
-            };
-
-            const treePromises = plantedTrees.map((treeData, index) => {
-                return generateTreeScoreBar(treeData, index);
-            });
-
-            Promise.all(treePromises).then(() => {
-                pdf.save('map.pdf');
-                // Reset the borough colors
-                resetBoroughColors(selectedBorough);
-
-                // Restore original DPI
-                Object.defineProperty(window, 'devicePixelRatio', {
-                    get: function() { return originalDpi; }
-                });
-            }).catch(error => {
-                console.error('Error generating tree score bars:', error);
-                resetBoroughColors(selectedBorough);
-
-                // Restore original DPI
-                Object.defineProperty(window, 'devicePixelRatio', {
-                    get: function() { return originalDpi; }
-                });
-            });
-        }).catch(error => {
-            console.error('Error generating map image:', error);
-            resetBoroughColors(selectedBorough);
-
-            // Restore original DPI
-            Object.defineProperty(window, 'devicePixelRatio', {
-                get: function() { return originalDpi; }
-            });
+            imgData = map.getCanvas().toDataURL('image/png');
+            console.log(imgData);
         });
-    }, 1000);
+    } catch (e) {
+        console.error(e);
+    }
+    
+
+    // Wait a bit to ensure flash is visible and map is updated
+    await new Promise(res => setTimeout(res, 800));
+
+    // Reset borough colors
+    resetBoroughColors(selectedBorough);
+
+    // Restore DPI
+    // Object.defineProperty(window, 'devicePixelRatio', {
+    //     get: function() { return originalDpi; }
+    // });
+
+    // const imgData = mapCanvas ? mapCanvas.toDataURL('image/png') : null;
+// console.log(imgData);
+    // await new Promise((res) => setTimeout(res, 500)); // Increase delay if necessary
+    // const mapCanvas = await html2canvas(map.getCanvasContainer(), { scale: 2 });
+
+
+    const pdf = new jspdf.jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'letter'
+    });
+
+    // Constants for alignment
+    const rightMargin = 450; // Adjust as per your page width
+    const titleY = 60; // Y-coordinate of the title
+
+    // Title (Treefolio Planting Priority)
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("Treefolio Planting Priority", 40, titleY); // Title text aligned left
+
+    // Subtitle
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(12);
+    pdf.text(`For ${boroughNameAndDistrict}`, 40, titleY + 20); // Subtitle slightly below title
+
+    // Logo and link aligned to the same Y-coordinate
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(24);
+    pdf.setTextColor(0, 128, 0);
+
+    // TreeFolio logo (right-aligned at the same height as the title)
+    pdf.text("T", rightMargin + 5 + 20, titleY);
+    pdf.setFontSize(14);
+    pdf.text("ree", rightMargin + 15 + 20, titleY);
+    pdf.setFontSize(24);
+    pdf.text("F", rightMargin + 40 + 20, titleY);
+    pdf.setFontSize(14);
+    pdf.text("olio", rightMargin + 50 + 20, titleY);
+
+    // Link (below the logo)
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 255);
+    pdf.textWithLink('treefolio.org', rightMargin + 40, titleY + 15, { url: 'https://treefolio.org' });
+
+    // Reset color for further text
+    pdf.setTextColor(0, 0, 0);
+
+    // Draw rounded rect and then map image inside it
+    // Rounded rect: x=40,y=100,w=500,h=300, radius=10
+    pdf.setDrawColor(0);
+    pdf.setLineWidth(1);
+    pdf.roundedRect(40,100,500,300,10,10,'S'); // Just stroke first
+    
+    // wait 1 second for the map image to be ready
+    await new Promise(r=>setTimeout(r,1000));
+    if (imgData) {
+        console.log("Got image data");
+        pdf.addImage(imgData, 'PNG', 45, 105, 490, 290);
+    } else {
+        console.log("No image data");
+    }
+    // Trees start after map
+    let treeStartY = 420;
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("Recommended Trees:", 40, treeStartY);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    treeStartY += 20;
+
+    // Layout: Continuous rows with 3 columns
+    const colWidth = 180;
+    const rowHeight = 50; // Tighter vertical spacing
+    const pageHeight = 820; // Max height for the page
+    let yPos = treeStartY;
+
+    // Cache bar chart images for faster rendering
+    const cachedBarImages = await Promise.all(
+    plantedTrees.map(treeData => {
+        const barHTML = createBarHTML(treeData);
+
+        const container = document.createElement('div');
+        container.innerHTML = barHTML;
+        document.body.appendChild(container);
+        const barDiv = container.firstChild;
+
+        // Adjust font size for text inside bars
+        barDiv.style.fontSize = "24px";
+
+        return html2canvas(barDiv, { scale: 2 })
+        .then(canvas => {
+            document.body.removeChild(container);
+            return canvas.toDataURL('image/png');
+        });
+    })
+    );
+
+    for (let i = 0; i < plantedTrees.length; i++) {
+    const col = i % 3; // 3 columns
+    if (col === 0 && i > 0) {
+        yPos += rowHeight; // Move to the next row after every 3 trees
+    }
+
+    // Check if we need a new page
+    if (yPos + rowHeight > pageHeight) {
+        pdf.addPage();
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Recommended Trees (Cont.):", 40, 60);
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
+        yPos = 80; // Reset to top of new page
+    }
+
+    const xPos = 40 + col * colWidth;
+
+    // Tree number
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text(`Tree #${i + 1}`, xPos, yPos);
+
+    // Link to map
+    const treeFeature = map.getSource('treeMarkers')._data.features[i];
+    const [lng, lat] = treeFeature.geometry.coordinates;
+    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    pdf.setTextColor(0, 0, 225);
+    pdf.textWithLink('View on Map', xPos + 100, yPos, { url: mapsUrl });
+    pdf.setTextColor(0, 0, 0);
+
+    // Insert cached bar image
+    const barImage = cachedBarImages[i];
+    pdf.addImage(barImage, 'PNG', xPos, yPos + 10, 160, 20); // Wider and taller bars
+    }
+
+    // After all trees, add a summary page with pie chart
+    pdf.addPage();
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica","bold");
+    pdf.text("Summary of All Recommended Trees",40,60);
+    pdf.setFont("helvetica","normal");
+    pdf.setFontSize(10);
+    pdf.text("Overall contribution breakdown across all recommended planting locations:",40,80);
+
+    const summaryChart = await generateSummaryChart(plantedTrees);
+    pdf.addImage(summaryChart, 'PNG', 40, 100, 300,300);
+
+    pdf.save('Treefolio_Planting_Priority.pdf');
 }
+
+
+async function generateTreeChartCanvas(treeData) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 100; 
+    const ctx = canvas.getContext('2d');
+
+    const labels = ['School', 'Tree', 'Facility', 'Street', 'Heat'];
+    const values = [
+        treeData._schoolmean || 0,
+        treeData._treemean || 0,
+        treeData._facilitymean || 0,
+        treeData._streetmean || 0,
+        treeData._mean || 0
+    ];
+
+    return new Promise((resolve, reject) => {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Contribution',
+                    data: values,
+                    backgroundColor: ['red', 'green', 'blue', 'purple', 'orange']
+                }]
+            },
+            options: {
+                responsive: false,
+                animation: false,
+                scales: {
+                    y: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Score Breakdown',
+                        font: { size: 10 }
+                    }
+                }
+            }
+        });
+
+        // Allow chart to render
+        setTimeout(() => {
+            resolve(canvas);
+        }, 500);
+    });
+}
+
+function updateTreeScoreBarForPDF(treeData, container) {
+    const totalScore = treeData._combinedMean;
+    const scoreParts = {
+        school: treeData._schoolmean,
+        tree: treeData._treemean,
+        facility: treeData._facilitymean,
+        street: treeData._streetmean,
+        heat: treeData._mean
+    };
+
+    // Clear container
+    container.innerHTML = '';
+
+    Object.entries(scoreParts).forEach(([key, value]) => {
+        if (value === undefined) return;
+        
+        const color = getColorForKey(key);
+        const div = document.createElement('div');
+        div.style.backgroundColor = color;
+        div.style.width = `${(value / totalScore) * 100}%`;
+        div.style.height = '100%';
+        div.style.position = 'relative';
+        div.style.color = 'black';
+        div.style.fontSize = '8px';
+        div.style.display = 'flex';
+        div.style.flexDirection = 'column';
+        div.style.justifyContent = 'center';
+        div.style.alignItems = 'center';
+        div.style.borderRight = '1px solid #fff';
+
+        const labelText = capitalizeFirstLetter(key);
+        const percentText = formatPercentage(value, totalScore);
+
+        const labelSpan = document.createElement('span');
+        labelSpan.style.fontSize = '8px';
+        labelSpan.textContent = labelText;
+
+        const percentSpan = document.createElement('span');
+        percentSpan.style.fontSize = '8px';
+        percentSpan.textContent = percentText;
+
+        div.appendChild(labelSpan);
+        div.appendChild(percentSpan);
+
+        container.appendChild(div);
+    });
+}
+
+function createBarHTML(treeData) {
+    const total = treeData._combinedMean;
+    const scoreParts = {
+        school: treeData._schoolmean,
+        tree: treeData._treemean,
+        facility: treeData._facilitymean,
+        street: treeData._streetmean,
+        heat: treeData._mean
+    };
+
+    let html = `<div id="pdfBarContainer" style="display:flex; align-items:center; position:relative; height:20px;">`;
+
+    // Filter out undefined values
+    const validParts = Object.entries(scoreParts).filter(([key, value]) => value !== undefined);
+
+    // Separate positive and negative values
+    const positiveTotal = validParts.reduce((sum, [, value]) => sum + Math.max(0, value), 0);
+    const negativeTotal = validParts.reduce((sum, [, value]) => sum + Math.abs(Math.min(0, value)), 0);
+    const overallTotal = positiveTotal + negativeTotal;
+
+    // Normalize percentages so they add up to 100%
+    validParts.forEach(([key, value], idx) => {
+        const normalizedPerc = (Math.abs(value) / overallTotal) * 100;
+        const color = getColorForKeyAndValue(key, value);
+        const sign = value < 0 ? "-" : "+"; // Indicate negative or positive
+        const lbl = `${capitalizeFirstLetter(key)} ${sign}${normalizedPerc.toFixed(1)}%`;
+
+        // Add bar segment
+        html += `<div class="barSegment" 
+                    style="width:${normalizedPerc}%; background-color:${color}; height:100%; display:flex; align-items:center; justify-content:center; position:relative;">`;
+
+        // Add text inside or outside the bar based on width
+        if (normalizedPerc >= 5) {
+            // Place text inside if bar is large enough
+            html += `<span style="font-size:10px; color:black; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${lbl}</span>`;
+        }
+        html += `</div>`;
+
+        // Add label outside the bar for small segments
+        if (normalizedPerc < 5) {
+            html += `<span style="font-size:10px; color:black; position:absolute; left:${idx * 10}px; top:25px;">${lbl}</span>`;
+        }
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+
+async function generateSummaryChart(plantedTrees) {
+    const sums = {school:0, tree:0, facility:0, street:0, heat:0};
+    plantedTrees.forEach(t => {
+        if (t._schoolmean) sums.school += t._schoolmean;
+        if (t._treemean) sums.tree += t._treemean;
+        if (t._facilitymean) sums.facility += t._facilitymean;
+        if (t._streetmean) sums.street += t._streetmean;
+        if (t._mean) sums.heat += t._mean;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 300;
+    canvas.height = 300;
+    document.body.appendChild(canvas);
+    canvas.style.position = 'absolute';
+    canvas.style.left = '-9999px';
+
+    const data = {
+        labels: ['School', 'Tree', 'Facility', 'Street', 'Heat'],
+        datasets: [{
+            data: [sums.school, sums.tree, sums.facility, sums.street, sums.heat],
+            backgroundColor: ['cornflowerblue','forestgreen','chocolate','darkviolet','darkorange']
+        }]
+    };
+
+    return new Promise((resolve) => {
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: data,
+            options: {
+                animation: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    title: {
+                        display: true,
+                        text: 'Overall Contribution Breakdown',
+                        font: { size: 14 }
+                    }
+                }
+            }
+        });
+        setTimeout(async ()=>{
+            const chartImg = await html2canvas(canvas, {scale:2}).then(c=> c.toDataURL('image/png'));
+            document.body.removeChild(canvas);
+            resolve(chartImg);
+        },500);
+    });
+}
+
+
+function getBoroughNameAndDistrict(boroCode) {
+    if (boroCode.length < 3) return "Unknown Borough and District";
+
+    const boroNum = parseInt(boroCode.charAt(0));
+    const distNum = parseInt(boroCode.slice(1));
+
+    let boroughName;
+    switch (boroNum) {
+        case 1: boroughName = "Manhattan"; break;
+        case 2: boroughName = "The Bronx"; break;
+        case 3: boroughName = "Brooklyn"; break;
+        case 4: boroughName = "Queens"; break;
+        case 5: boroughName = "Staten Island"; break;
+        default: boroughName = "Unknown Borough";
+    }
+
+    return `${boroughName} Community District ${distNum < 10 ? '0' + distNum : distNum}`;
+}
+
+function formatPercentage(value, total) {
+    if (total === 0 || value === undefined) return "0%";
+    return Math.round((value / total) * 100) + "%";
+}
+
+function getColorForKeyAndValue(key, val) {
+    // Different base colors for each key, tinted green if positive, red if negative
+    const baseColors = {
+        school: [100, 149, 237], // cornflowerblue
+        tree: [34, 139, 34],    // forestgreen
+        facility: [210, 105, 30], // chocolate
+        street: [148, 0, 211],  // darkviolet
+        heat: [255, 140, 0]     // darkorange
+    };
+    const color = baseColors[key] || [128,128,128];
+    // If negative, shift towards red
+    // if (val < 0) {
+    //     return `rgb(${Math.min(color[0]+100,255)}, ${Math.max(color[1]-100,0)}, ${Math.max(color[2]-100,0)})`;
+    // } else {
+    //     // If positive, lighten color slightly
+        return `rgb(${Math.min(color[0]+50,255)}, ${Math.min(color[1]+50,255)}, ${Math.min(color[2]+50,255)})`;
+    // }
+}
+
+function formatPercentage(value, total) {
+    if (total === 0 || value === undefined) return "0%";
+    return Math.round((value / total) * 100) + "%";
+}
+
 
 function updateTreeScoreBarOriginal1(treeData, scoreBarContainer) {
     const totalScore = treeData._combinedMean;
@@ -1372,8 +1740,6 @@ function updateTreeMarkers(selectedIndex) {
         features: features
     });
 
-    updateTreeMarkers(index);
-
 }
 function showTreePopup(index) {
 
@@ -1411,6 +1777,8 @@ function showTreePopup(index) {
     document.getElementById('homeButton').style.display = 'block';
     currentTreeIndex = index;
 
+    updateTreeMarkers(index);
+
     // Zoom to the selected tree
     const coordinates = map.getSource('treeMarkers')._data.features[index].geometry.coordinates;
     map.flyTo({ center: coordinates, zoom: 15 });
@@ -1439,12 +1807,13 @@ function updateTreeScoreBarOriginal(treeData) {
         }
 
         const percentage = (value / totalScore) * 100;
-        const color = getColorForKey(key);
+        const color = getColorForKeyAndValue(key, value);
         const barPart = document.createElement('div');
         barPart.style.backgroundColor = color;
         barPart.style.width = `${percentage}%`;
         barPart.innerText = `${Math.round(percentage)}%`;
         barPart.style.position = 'relative';
+        barPart.style.color = 'black';
         barPart.innerHTML = `<span style="position: absolute; top: -20px; width: 100%; text-align: center; font-size: 10px; color: black;">${capitalizeFirstLetter(key)}</span>${Math.round(percentage)}%`;
         scoreBar.appendChild(barPart);
     }
